@@ -403,9 +403,11 @@ def home_form():
     # if code in form, validate and begin survey
     if "code" in request.form:
         code = request.form["code"]
-        if validate_code(code):
+        # get code response
+        c = validate_code(code)
+        if c:
             # assign user the code 
-            u.code = code 
+            u.code = c 
             db.session.commit()
             # store cookie
             session["user"]["code"] = code
