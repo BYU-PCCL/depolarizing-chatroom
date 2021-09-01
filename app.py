@@ -355,7 +355,8 @@ def validate_code(code):
     c = Codes.query.filter_by(code=code).first()
     # if not None, make sure is not expired
     if c != None:
-        return c.expiry > dt.now()
+        if c.expiry > dt.now():
+            return c
     
     return False
 
@@ -403,6 +404,10 @@ def home_form():
     if "code" in request.form:
         code = request.form["code"]
         if validate_code(code):
+            # assign user the code 
+            u.code = code 
+            db.session.commit()
+            # store cookie
             session["user"]["code"] = code
             session["user"]["q_num"] = 1
             # start survey
