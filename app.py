@@ -14,7 +14,7 @@ QUEUE = {}
 THRESHOLD = 2
 
 # app
-TEST = True
+TEST = False
 app = Flask(__name__)
 app.secret_key = environ.get("SECRET_KEY") # v secure
 app.config['SESSION_TYPE'] = 'filesystem'
@@ -143,7 +143,8 @@ class Codes(db.Model):
     responses = db.relationship('Responses', back_populates='code')
     questions = db.relationship('Questions', back_populates='code', order_by=Questions.number.desc)
 
-db.create_all()
+if not path.exists(path.join(getcwd(), "chatrooms.sqlite3")):
+    db.create_all()
 
 def add_to_db(data):
     'just cuz I forget to commit frequently'
