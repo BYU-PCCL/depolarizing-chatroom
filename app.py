@@ -318,7 +318,7 @@ def process_signup(email, uname):
         return False
     
     # add user to database
-    add_to_db(Users(email=email, code="code", uname=uname, color=random_color()))
+    add_to_db(Users(email=email, uname=uname, color=random_color()))
 
     # add user to session
     session["user"] = {"email": email, "uname": uname}
