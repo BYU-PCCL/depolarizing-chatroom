@@ -1,0 +1,148 @@
+<head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <style>
+        .opt_span, form{
+            display: flex;
+            flex-direction:
+            column;
+            align-items:flex-start;
+        }
+    </style>
+    {% if code == None %}
+    <form action="/survey_builder" method="POST" id="begin">
+        <span>
+            <label for="code">Survey Code</label>
+            <input id="code" name="code" required>
+        </span>
+        <span>
+            <label for="expiry">Survey Expiration (YYYY-MM-DD)</label>
+            <input id="expiry" name="expiry" type="date" value="2022-07-13" required>
+        </span>
+        <input type="submit" value="Begin or resume building survey">
+    </form>
+    <p>If the survey code is already in the database, we'll pick up where you left off. Otherwise, we'll make a new survey.</p>
+
+    {% else %}
+    <span>
+        <label for="code">Survey code:</label>
+        <input name="code" id="code" value="{{code}}" disabled>
+    </span>
+    <span>
+        <label for="qnum">Question number:</label>
+        <input name="qnum" id="qnum" value="{{qnum}}" disabled>
+    </span>
+    <h3>Select question type and add below:</h3>
+
+    <select name="question_type" class="question_select">
+        <option value="grid">Grid</option>
+        <option value="radio">Radio (Single selection)</option>
+        <option value="multiple">Multiple Choice</option>
+        <option value="slider">Slider</option>
+    </select>
+
+    <form action="/survey_builder" method="POST" id="grid">
+        <span>
+            <label for="question">Question:</label>
+            <input name="question" type="text" required>
+        </span>
+
+        <ol>
+            <span class="opt_span">
+                <p>Rows:</p>
+                <button class="add_option" type="button" data-name="row">Add row (+)</button>
+                    <span>
+                        <li><input type="text" name="row" required></li>
+                        <button type="button" class="remove_opt">Remove (-)</button>
+                    </span>
+            </span>
+        </ol>
+
+        <ol>
+            <span class="opt_span">
+                <p>Options:</p>
+                <button class="add_option" type="button" data-name="option">Add option (+)</button>
+                    <span>
+                        <li><input type="text" name="option" required></li>
+                        <button type="button" class="remove_opt">Remove (-)</button>
+                    </span>
+            </span>
+        </ol>
+
+
+        <input type="submit">
+    </form>
+
+    <form action="/survey_builder" method="POST" id="radio" >
+        <span>
+            <label for="question">Question:</label>
+            <input name="question" type="text" required>
+        </span>
+
+        <ol>
+        <span class="opt_span">
+            <p>Options:</p>
+            <button class="add_option" type="button" data-name="option">Add option (+)</button>
+                <span>
+                    <li><input type="text" name="option" required></li>
+                    <button type="button" class="remove_opt">Remove (-)</button>
+                </span>
+        </span>
+        </ol>
+
+        <input type="submit">
+    </form>
+
+    <form action="/survey_builder" method="POST" id="multiple">
+        <span>
+            <label for="question">Question:</label>
+            <input name="question" type="text" required>
+        </span>
+
+        <ol>
+            <span class="opt_span">
+                <p>Options:</p>
+                <button class="add_option" type="button" data-name="option">Add option (+)</button>
+                    <span>
+                        <li><input type="text" name="option" required></li>
+                        <button type="button" class="remove_opt">Remove (-)</button>
+                    </span>
+            </span>
+        </ol>
+    
+
+        <input type="submit">
+    </form>
+
+    <form action="/survey_builder" method="POST" id="slider">
+        <span>
+            <label for="question">Question:</label>
+            <input name="question" type="text" required>
+        </span>
+
+        <span>
+            <label for="min_val">Minimum slider value:</label>
+            <input name="min_val" type="number" required>
+        </span>
+
+        <span>
+            <label for="start">Starting slider value:</label>
+            <input name="start" type="number" required>
+        </span>
+
+        <span>
+            <label for="max_val">Maximum slider value:</label>
+            <input name="max_val" type="number" required>
+        </span>
+
+        <span>
+            <label for="step">Slider increment value:</label>
+            <input name="step" type="number" required>
+        </span>
+
+        <input type="submit">
+    </form>
+    {% endif %}
+    <script src="{{ url_for('static', filename='js/survey_builder.js') }}"></script>
+</body>

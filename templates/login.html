@@ -1,0 +1,23 @@
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/stylesheet.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com"> 
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> 
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@200;400;700&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    {% include "popup.html" %}
+    <div class="flexwrap purple login">
+        <form method="POST" class="ajaxform" data-url="/login">
+            <input type="text" name="email" placeholder="email">
+            <input class="form_submit" type="submit" value="log in" name="login">
+        </form>
+        <div class="vl"></div>
+        <form method="POST" class="ajaxform" data-url="/login">
+            <input type="text" name="email" placeholder="email">
+            <input type="text" name="uname" placeholder="username">
+            <input class="form_submit" type="submit" value="sign up" name="signup">
+        </form>
+    </div>
+    <script src="{{ url_for('static', filename='js/forms.js') }}"></script>
+</body>

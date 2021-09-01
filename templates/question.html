@@ -1,0 +1,243 @@
+
+<head>
+    <!--Plugin CSS file with desired skin-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/css/ion.rangeSlider.min.css"/>
+        
+    <!--jQuery-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    <!--Plugin JavaScript file-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.3.1/js/ion.rangeSlider.min.js"></script></head>
+    <style>
+        /* Overrides for range slider skin */
+        .irs {
+            height: 20px;
+            margin-top: 0;
+            margin-bottom: 30px
+        }
+        .irs-with-grid {
+            height: 40px;
+            margin-top: 0px;
+            margin-bottom: 0px;
+        }
+        .irs-line {
+            border: 2px, solid, #fff;
+            height: 12px;
+            top: 10px;
+            background-color: #ccc;
+            border-radius: 12px;
+        }
+        .irs-bar {
+            height: 12px;
+            top: 10px;
+            background-position: 0 -60px;
+            background-color: #0439D9;
+            background-image: none;!important
+        }
+        .irs-line:hover {
+            cursor: pointer;
+        }
+        .irs-bar:hover {
+            cursor: pointer;
+        }
+        .irs-bar-edge {
+            top: 10px;
+            height: 12px;
+            width: 15px;
+            background-color: #bbb;
+            background-image: none;!important
+            -webkit-border-top-left-radius: 4px;
+                -webkit-border-bottom-left-radius: 4px;
+                border-top-left-radius: 4px;
+                border-bottom-left-radius: 4px
+        }
+        .irs-shadow {
+            height: 3px;
+            top: 10px;
+            background: #FFF;
+            opacity: .25
+        }
+        .lt-ie9 .irs-shadow {
+            filter: alpha(opacity=25)
+        }
+        .irs-slider {
+            width: 25px;
+            height: 25px;
+            top: 4px;
+            background-position: 0 0;
+            background-image: none;
+            background-color: #0439D9;
+            border-radius: 100%;
+            transition: background-color 200ms ease-in
+        }
+        .irs-slider.state_hover,
+        .irs-slider:hover {
+            width: 25px;
+            height: 25px;
+            top: 4px;
+            background-position: 0 -120px;
+            background-image: none;
+            background-color: #0439D9;
+            cursor: pointer;
+            border-radius: 100%
+        }
+        .irs-min,
+        .irs-max
+        {
+            display: none;
+        }
+        .irs-from,
+        .irs-to,
+        .irs-single {
+            display: block;
+            background-color: #0439D9;
+            color: white;
+            font-weight: 400;
+            top:10px;
+            padding:0;
+            z-index:100000;
+            padding: 0px 10px;
+            height: 12px;
+            font-size: 10px;
+            border-radius: 12px;
+        }
+        .irs-from:after,
+        .irs-to:after,
+        .irs-single:after {
+            display: none;
+        }
+        .irs-from:hover,
+        .irs-to:hover,
+        .irs-single:hover {
+            cursor:pointer;
+        }
+        .irs-grid {
+          top: 25px;
+          z-index: -1;
+        }
+        .irs-grid-pol {
+            background: #bbb
+        }
+        .irs-grid-text {
+            font-size: 13px;
+            color: #6a859c;
+        }
+        #pos .irs-grid-pol.small {
+            display: none;
+        }
+        /* Getting rid of that ugly textarea resize-corner */
+        textarea {
+        resize: none
+        }
+        /* textarea scrollbar fixings */
+        textarea.area.field.w-input::-webkit-scrollbar {
+            width: 14px;
+            height: 18px;
+        }
+        textarea.area.field.w-input::-webkit-scrollbar-thumb {
+            height: 6px;
+            border: 4px solid rgba(0, 0, 0, 0);
+            background-clip: padding-box;
+            -webkit-border-radius: 7px;
+            background-color: #2663BC;
+            -webkit-box-shadow: inset -1px -1px 0px rgba(0, 0, 0, 0.05), inset 1px 1px 0px rgba(0, 0, 0, 0.05);
+        }
+        textarea.area.field.w-input::-webkit-scrollbar-button {
+            width: 0;
+            height: 0;
+            display: none;
+        }
+        textarea.area.field.w-input::-webkit-scrollbar-corner {
+            background-color: transparent;
+        }
+        * {
+          box-sizing: border-box;
+        }
+    </style>
+    
+</head>
+
+{% if type=="radio" %}
+    <div class="list_wrapper">
+        {% for opt in opts %}
+        <label class="radio">
+            <span class="radio_input">
+            <input type="radio" name="{{number}}" value="{{opt}}" required>
+            <span class="radio_control"></span>
+            </span>
+            <span class="radio_label">{{opt}}</span>
+        </label>
+        {% endfor %}
+    </div>
+
+{% elif type=="multiple" %}
+    <div class="list_wrapper">
+        {% for opt in opts %}
+        <label class="radio">
+            <span class="radio_input">
+            <input type="checkbox" name="{{number}}" value="{{opt}}">
+            <span class="radio_control"></span>
+            </span>
+            <span class="radio_label">{{opt}}</span>
+        </label>
+        {% endfor %}
+    </div>
+
+{% elif type=="slider" %}
+    
+  
+    <!-- ion range slider -->
+    <input type="text" maxlength="256" name="{{num}}"  id="slider">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ion-rangeslider/2.1.2/js/ion.rangeSlider.min.js">console.log("loaded");</script>
+    <script>
+        console.log({{max_val}})
+        console.log({{min_val}})
+        console.log({{step}})
+    $("#slider").ionRangeSlider({
+        type: "single",
+        snaps: true,
+        grid: true,
+        grid_num: ({{max_val}} - {{min_val}}) / {{step}},
+        step: {{step}},
+        min: {{min_val}},
+        max: {{max_val}},
+        ticks: true,
+        decorate_both: true,
+        force_edges: true
+    });
+    </script>
+        <!--
+    <input name="{{number}}" class="slider" type="range" min={{min_val}} max={{max_val}} value={{start}} step={{step}} oninput="update_slider(this)">
+    <output class="bubble">{{start}}</output>
+-->
+
+{% elif type=="grid" %}
+
+    <div class="grid_wrapper_small gws_left">
+        <p class="grid_label">{{labels[0]}}</p>
+    </div>
+    <div class="grid_wrapper">
+        {% for q, row in zip(questions, rows) %}
+            <div class="grid_row_wrapper_text">
+                <p class="grid_question">{{q}}</p>
+            </div>
+            
+            <div class="grid_row_wrapper">
+                {% for opt in opts %}
+                <label class="radio grid_radio">
+                    <span class="radio_input">
+                    <input type="radio" name="{{row}}" value="{{opt}}" required>
+                    <span class="radio_control"></span>
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+    <div class="grid_wrapper_small gws_right">
+        <p class="grid_label">{{labels[1]}}</p>
+    </div>
+
+{% elif type=="input" %}
+    <input type="text" placeholder="new form!">
+{% endif %}
