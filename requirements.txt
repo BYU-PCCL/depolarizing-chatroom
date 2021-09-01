@@ -1,4 +1,3 @@
-appnope @ file:///opt/concourse/worker/volumes/live/5f13e5b3-5355-4541-5fc3-f08850c73cf9/volume/appnope_1606859448618/work
 backcall @ file:///home/ktietz/src/ci/backcall_1611930011877/work
 bidict @ file:///home/conda/feedstock_root/build_artifacts/bidict_1599511855442/work
 cachelib==0.3.0
