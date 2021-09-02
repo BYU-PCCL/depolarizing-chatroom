@@ -283,6 +283,10 @@ def add_code(code, expiry, fmt="%Y-%m-%d"):
     """
     c = Codes(code=code, expiry=dt.strptime(expiry, fmt))
     add_to_db(c)
+
+    # add code to QUEUE
+    QUEUE[code] = []
+
     return c
 
 def add_chatroom(prompt):
