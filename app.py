@@ -4,7 +4,7 @@ from flask_socketio import SocketIO
 from flask_sqlalchemy import SQLAlchemy
 from flask_session import Session
 from functools import wraps
-from os import getcwd, path, remove
+from os import getcwd, path, remove, environ
 from datetime import datetime as dt
 import random
 import threading
@@ -18,6 +18,7 @@ TEST = False
 app = Flask(__name__)
 app.secret_key = environ.get("SECRET_KEY") # v secure
 app.config['SESSION_TYPE'] = 'filesystem'
+
 app.jinja_env.globals.update(zip=zip) # add zip to jinja
 app.jinja_env.globals.update(int=int)
 
@@ -27,11 +28,19 @@ Session(app)
 # socket
 socketio = SocketIO(app)
 
-# database
+# POSTGRES
 if TEST:
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{getcwd()}/chatrooms_test.sqlite3"
+    # POSTGRES
+    host = "localhost"
+    host = environ.get("LOCAL_HOST")
+    username = environ.get("LOCAL_UNAME")
+    address = environ.get("LOCAL_ADDR")
+    password = environ.get("LOCAL_PW")
+    dbname = environ.get("LOCAL_DBNAME")
+    app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql://{username}:{password}@{host}/{dbname}"
 else:
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{getcwd()}/chatrooms.sqlite3"
+    app.config['SQLALCHEMY_DATABASE_URI'] = environ.get("DB_URI")
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 app.config['SESSION_PERMANENT'] = True
@@ -143,8 +152,8 @@ class Codes(db.Model):
     responses = db.relationship('Responses', back_populates='code')
     questions = db.relationship('Questions', back_populates='code', order_by=Questions.number.desc)
 
-if not path.exists(path.join(getcwd(), "chatrooms.sqlite3")):
-    db.create_all()
+
+db.create_all()
 
 def add_to_db(data):
     'just cuz I forget to commit frequently'
