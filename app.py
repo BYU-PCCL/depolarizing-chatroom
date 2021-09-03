@@ -281,11 +281,14 @@ def add_code(code, expiry, fmt="%Y-%m-%d"):
 
     returns Codes
     """
+    print(f"ADDING CODE: {code}")
     c = Codes(code=code, expiry=dt.strptime(expiry, fmt))
     add_to_db(c)
 
     # add code to QUEUE
     QUEUE[code] = []
+
+    print(QUEUE)
 
     # start thread listening on code
     threading.Thread(target=waitlist_listener, args=(code,)).start()
