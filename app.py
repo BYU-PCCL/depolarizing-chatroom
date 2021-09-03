@@ -286,6 +286,7 @@ def add_code(code, expiry, fmt="%Y-%m-%d"):
     add_to_db(c)
 
     # add code to QUEUE
+    global QUEUE
     QUEUE[code] = []
 
     print(QUEUE)
@@ -526,6 +527,7 @@ def waiting_room(uid):
     if u.id != int(uid):
         return jsonify({"message":"Invalid chatroom"}), 401, {'ContentType':'application/json'}
     
+    global QUEUE
     print(QUEUE)
     return render_template("waiting_room.html", uid=uid, threshold=THRESHOLD, num_queue=len(QUEUE[u.code.code]))
 
@@ -537,6 +539,7 @@ def handle_waiting_room(json, methods=['GET', 'POST']):
     code = u.code.code
 
     # add user to queue if not already in a chatroom
+    global QUEUE
     if u.id not in QUEUE[code] and u.chatroomid == None:
         QUEUE[code].append(u.id)
 
@@ -545,6 +548,7 @@ def handle_waiting_room(json, methods=['GET', 'POST']):
     socketio.emit('joined_waiting_room', json, callback=messageReceived)
 
 def waitlist_listener(code):
+    global QUEUE
     while True:
         # if number of users in queue exceeds threshold, redirect threshold # users to same chatroom
         if len(QUEUE[code]) >= THRESHOLD:
