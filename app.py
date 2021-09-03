@@ -587,4 +587,4 @@ if __name__ == '__main__':
     t = threading.Thread(target=waitlist_listener)
     t.start()
     # run app
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=TEST)
