@@ -523,6 +523,7 @@ def waiting_room(uid):
     if u.id != int(uid):
         return jsonify({"message":"Invalid chatroom"}), 401, {'ContentType':'application/json'}
     
+    print(QUEUE)
     return render_template("waiting_room.html", uid=uid, threshold=THRESHOLD, num_queue=len(QUEUE[u.code.code]))
 
 @socketio.on('join_waiting_room')
