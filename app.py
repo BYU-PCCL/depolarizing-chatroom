@@ -191,6 +191,7 @@ def survey_builder():
                 qnum = 1
             else:
                 qnum = len(c.questions) + 1
+            print("rendering question")
             return render_template("survey_builder.html", code=code, qnum=qnum)
         # or adding new question
         else: 
