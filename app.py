@@ -293,7 +293,9 @@ def add_code(code, expiry, fmt="%Y-%m-%d"):
     print(QUEUE)
 
     # start thread listening on code
-    threading.Thread(target=waitlist_listener, args=(code,)).start()
+    t = threading.Thread(target=waitlist_listener, args=(code,))
+    t.daemon = True 
+    t.start()
     print("thread started")
 
     return c
