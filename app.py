@@ -294,6 +294,7 @@ def add_code(code, expiry, fmt="%Y-%m-%d"):
 
     # start thread listening on code
     threading.Thread(target=waitlist_listener, args=(code,)).start()
+    print("thread started")
 
     return c
 
