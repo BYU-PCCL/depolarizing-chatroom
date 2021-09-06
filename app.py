@@ -189,13 +189,13 @@ def survey_builder():
             c = Codes.query.filter_by(code=code).first()
             # if doesn't exist, add new code and survey, otherwise, resume
             if c == None:
-                add_code(code, request.form["expiry"])
+                new_code = add_code(code, request.form["expiry"])
                 qnum = 1
                 # start thread listening on code
                 #t = threading.Thread(target=waitlist_listener, args=(code,))
                 #t.setDaemon(True)
                 #t.start()
-                eventlet.spawn(waitlist_listener, c)
+                eventlet.spawn(waitlist_listener, new_code)
                 print("thread started")
             else:
                 qnum = len(c.questions) + 1
