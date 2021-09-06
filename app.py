@@ -189,13 +189,13 @@ def survey_builder():
             c = Codes.query.filter_by(code=code).first()
             # if doesn't exist, add new code and survey, otherwise, resume
             if c == None:
-                new_code = add_code(code, request.form["expiry"])
+                add_code(code, request.form["expiry"])
                 qnum = 1
                 # start thread listening on code
                 #t = threading.Thread(target=waitlist_listener, args=(code,))
                 #t.setDaemon(True)
                 #t.start()
-                eventlet.spawn(waitlist_listener, new_code)
+                eventlet.spawn(waitlist_listener, code)
                 print("thread started")
             else:
                 qnum = len(c.questions) + 1
@@ -548,14 +548,15 @@ def handle_waiting_room(json, methods=['GET', 'POST']):
 def waitlist_listener(code):
     while True:
         # if number of users in queue exceeds threshold, redirect threshold # users to same chatroom
-        waiters = Users.query.filter(Users.codeid==code.id, Users.waiting!=None).all()
-        print(waiters, code.code)
+        c = Codes.query.filter_by(code=code).first()
+        waiters = Users.query.filter(Users.code==c, Users.waiting!=None).all()
+        print(waiters, c.code)
         if len(waiters) >= THRESHOLD:
             print("people waiting:")
             print(waiters)
             uids = waiters[:THRESHOLD]
             # create chatroom 
-            chatroom = Chatrooms(codeid=code.id, prompt="This is a sample prompt for now.")
+            chatroom = Chatrooms(codeid=c.id, prompt="This is a sample prompt for now.")
             db.session.add(chatroom)
             db.session.commit()
             # redirect each user
