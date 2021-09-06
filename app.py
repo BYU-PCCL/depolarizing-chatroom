@@ -195,7 +195,7 @@ def survey_builder():
                 #t = threading.Thread(target=waitlist_listener, args=(code,))
                 #t.setDaemon(True)
                 #t.start()
-                eventlet.spawn(waitlist_listener, code)
+                eventlet.spawn(waitlist_listener, c)
                 print("thread started")
             else:
                 qnum = len(c.questions) + 1
