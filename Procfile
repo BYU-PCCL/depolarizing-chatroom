@@ -1,1 +1,1 @@
-web: uwsgi uwsgi.ini --ini uwsgi.ini
+web: gunicorn --worker-class eventlet -w 1 --threads 100 app:app
