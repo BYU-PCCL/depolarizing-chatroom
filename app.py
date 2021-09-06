@@ -12,7 +12,6 @@ import eventlet
 eventlet.monkey_patch()
 
 # for now, have waiting room queue be a dictionary of lists (for code names)
-QUEUE = {}
 THRESHOLD = 2
 
 # app
@@ -65,6 +64,7 @@ class Users(db.Model):
     curq = db.Column(db.Integer, default=1)
     uname = db.Column(db.String(320))
     color = db.Column(db.String(7))
+    waiting = db.Column(db.DateTime)
     # relationship (many-to-one with chatrooms, one-to-many with messages, many-to-one with codes, one-to-many with responses)
     chatroom = db.relationship('Chatrooms', back_populates='users')
     messages = db.relationship('Messages', back_populates='user')
@@ -290,15 +290,8 @@ def add_code(code, expiry, fmt="%Y-%m-%d"):
 
     returns Codes
     """
-    print(f"ADDING CODE: {code}")
     c = Codes(code=code, expiry=dt.strptime(expiry, fmt))
     add_to_db(c)
-
-    # add code to QUEUE
-    global QUEUE
-    QUEUE[code] = []
-
-    print(QUEUE)
 
     return c
 
@@ -533,36 +526,35 @@ def waiting_room(uid):
     if u.id != int(uid):
         return jsonify({"message":"Invalid chatroom"}), 401, {'ContentType':'application/json'}
     
-    global QUEUE
-    print(QUEUE)
-    return render_template("waiting_room.html", uid=uid, threshold=THRESHOLD, num_queue=len(QUEUE[u.code.code]))
+    # get number of people in that 
+    nq = Users.query.filter(code==u.code, waiting!=None).count()
+
+    return render_template("waiting_room.html", uid=uid, threshold=THRESHOLD, num_queue=nq)
 
 @socketio.on('join_waiting_room')
 def handle_waiting_room(json, methods=['GET', 'POST']):
     # get current user
     uid = json["uid"]
     u = Users.query.filter_by(id = int(uid)).first()
-    code = u.code.code
 
     # add user to queue if not already in a chatroom
-    global QUEUE
-    if u.id not in QUEUE[code] and u.chatroomid == None:
-        QUEUE[code].append(u.id)
+    u.waiting = dt.now() 
+    db.session.commit()
 
-    json["num_queue"] = len(QUEUE[code])
+    json["num_queue"] = Users.query.filter(code==u.code, waiting!=None).count()
 
     socketio.emit('joined_waiting_room', json, callback=messageReceived)
 
 def waitlist_listener(code):
-    global QUEUE
     while True:
         # if number of users in queue exceeds threshold, redirect threshold # users to same chatroom
-        if len(QUEUE[code]) >= THRESHOLD:
-            print(QUEUE[code])
-            uids = QUEUE[code][:THRESHOLD]
+        waiters = Users.query.filter(code==code, waiting!=None).all()
+        if len(waiters) >= THRESHOLD:
+            print("people waiting:")
+            print(waiters)
+            uids = waiters[:THRESHOLD]
             # create chatroom 
-            codeid = Codes.query.filter_by(code=code).first().id
-            chatroom = Chatrooms(codeid=codeid, prompt="This is a sample prompt for now.")
+            chatroom = Chatrooms(codeid=code.id, prompt="This is a sample prompt for now.")
             db.session.add(chatroom)
             db.session.commit()
             # redirect each user
@@ -571,10 +563,10 @@ def waitlist_listener(code):
                 # add relationships
                 chatroom.users.append(u)
                 u.chatroomid = chatroom.id
+                u.waiting = None
+
                 print(f"Redirecting {uid} to /chatroom/{chatroom.id}")
                 socketio.emit(f"waiting_room_redirect_{uid}", {'redirect':f'/chatroom/{chatroom.id}'})
-                # this is O(N) - should we do this in O(1) and increment a pointer, or too much storage??
-                QUEUE[code].pop(0)
             db.session.commit()
 
 """
@@ -603,12 +595,6 @@ def handle_msg_sent(json, methods=['GET', 'POST']):
 
 if __name__ == '__main__':
     #initialize_test()
-    # make queue
-    codes = Codes.query.all()
-    for code in codes:
-        QUEUE[code.code] = []
-        # run queue listener in background for each thread
-        #threading.Thread(target=waitlist_listener, args=(code.code,)).start()
 
     # run app
     socketio.run(app, debug=TEST)
