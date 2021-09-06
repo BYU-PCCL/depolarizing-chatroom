@@ -549,6 +549,7 @@ def waitlist_listener(code):
     while True:
         # if number of users in queue exceeds threshold, redirect threshold # users to same chatroom
         waiters = Users.query.filter(Users.code==code, Users.waiting!=None).all()
+        print(waiters, code.code)
         if len(waiters) >= THRESHOLD:
             print("people waiting:")
             print(waiters)
