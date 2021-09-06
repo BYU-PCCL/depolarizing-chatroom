@@ -7,7 +7,9 @@ from functools import wraps
 from os import getcwd, path, remove, environ
 from datetime import datetime as dt
 import random
-from gevent import threading
+import eventlet
+
+eventlet.monkey_patch()
 
 # for now, have waiting room queue be a dictionary of lists (for code names)
 QUEUE = {}
@@ -190,9 +192,10 @@ def survey_builder():
                 add_code(code, request.form["expiry"])
                 qnum = 1
                 # start thread listening on code
-                t = threading.Thread(target=waitlist_listener, args=(code,))
-                t.setDaemon(True)
-                t.start()
+                #t = threading.Thread(target=waitlist_listener, args=(code,))
+                #t.setDaemon(True)
+                #t.start()
+                eventlet.spawn(waitlist_listener, code)
                 print("thread started")
             else:
                 qnum = len(c.questions) + 1
@@ -605,7 +608,7 @@ if __name__ == '__main__':
     for code in codes:
         QUEUE[code.code] = []
         # run queue listener in background for each thread
-        threading.Thread(target=waitlist_listener, args=(code.code,)).start()
+        #threading.Thread(target=waitlist_listener, args=(code.code,)).start()
 
     # run app
     socketio.run(app, debug=TEST)
