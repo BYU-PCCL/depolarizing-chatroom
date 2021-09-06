@@ -550,18 +550,16 @@ def waitlist_listener(code):
         # if number of users in queue exceeds threshold, redirect threshold # users to same chatroom
         c = Codes.query.filter_by(code=code).first()
         waiters = Users.query.filter(Users.code==c, Users.waiting!=None).all()
-        print(waiters, c.code)
         if len(waiters) >= THRESHOLD:
             print("people waiting:")
             print(waiters)
-            uids = waiters[:THRESHOLD]
+            us = waiters[:THRESHOLD]
             # create chatroom 
             chatroom = Chatrooms(codeid=c.id, prompt="This is a sample prompt for now.")
             db.session.add(chatroom)
             db.session.commit()
             # redirect each user
-            for uid in uids:
-                u = Users.query.filter_by(id=uid).first()
+            for u in us:
                 # add relationships
                 chatroom.users.append(u)
                 u.chatroomid = chatroom.id
