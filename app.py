@@ -189,6 +189,11 @@ def survey_builder():
             if c == None:
                 add_code(code, request.form["expiry"])
                 qnum = 1
+                # start thread listening on code
+                t = threading.Thread(target=waitlist_listener, args=(code,))
+                t.daemon = True 
+                t.start()
+                print("thread started")
             else:
                 qnum = len(c.questions) + 1
             print("rendering question")
@@ -291,12 +296,6 @@ def add_code(code, expiry, fmt="%Y-%m-%d"):
     QUEUE[code] = []
 
     print(QUEUE)
-
-    # start thread listening on code
-    t = threading.Thread(target=waitlist_listener, args=(code,))
-    t.daemon = True 
-    t.start()
-    print("thread started")
 
     return c
 
