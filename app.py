@@ -15,7 +15,7 @@ THRESHOLD = 2
 
 # app
 TEST = False
-app = Flask(__name__, threaded=True)
+app = Flask(__name__)
 app.secret_key = environ.get("SECRET_KEY") # v secure
 app.config['SESSION_TYPE'] = 'filesystem'
 
