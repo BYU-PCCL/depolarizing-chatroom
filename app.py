@@ -191,7 +191,7 @@ def survey_builder():
                 qnum = 1
                 # start thread listening on code
                 t = threading.Thread(target=waitlist_listener, args=(code,))
-                t.daemon = True 
+                t.setDaemon(True)
                 t.start()
                 print("thread started")
             else:
