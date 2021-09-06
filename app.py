@@ -7,7 +7,7 @@ from functools import wraps
 from os import getcwd, path, remove, environ
 from datetime import datetime as dt
 import random
-import threading
+from gevent import threading
 
 # for now, have waiting room queue be a dictionary of lists (for code names)
 QUEUE = {}
