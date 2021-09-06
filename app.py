@@ -565,8 +565,8 @@ def waitlist_listener(code):
                 u.chatroomid = chatroom.id
                 u.waiting = None
 
-                print(f"Redirecting {uid} to /chatroom/{chatroom.id}")
-                socketio.emit(f"waiting_room_redirect_{uid}", {'redirect':f'/chatroom/{chatroom.id}'})
+                print(f"Redirecting {u.id} to /chatroom/{chatroom.id}")
+                socketio.emit(f"waiting_room_redirect_{u.id}", {'redirect':f'/chatroom/{chatroom.id}'})
             db.session.commit()
 
 """
