@@ -527,7 +527,7 @@ def waiting_room(uid):
         return jsonify({"message":"Invalid chatroom"}), 401, {'ContentType':'application/json'}
     
     # get number of people in that 
-    nq = Users.query.filter(code==u.code, waiting!=None).count()
+    nq = Users.query.filter(Users.code==u.code, Users.waiting!=None).count()
 
     return render_template("waiting_room.html", uid=uid, threshold=THRESHOLD, num_queue=nq)
 
@@ -541,14 +541,14 @@ def handle_waiting_room(json, methods=['GET', 'POST']):
     u.waiting = dt.now() 
     db.session.commit()
 
-    json["num_queue"] = Users.query.filter(code==u.code, waiting!=None).count()
+    json["num_queue"] = Users.query.filter(Users.code==u.code, Users.waiting!=None).count()
 
     socketio.emit('joined_waiting_room', json, callback=messageReceived)
 
 def waitlist_listener(code):
     while True:
         # if number of users in queue exceeds threshold, redirect threshold # users to same chatroom
-        waiters = Users.query.filter(code==code, waiting!=None).all()
+        waiters = Users.query.filter(Users.code==code, Users.waiting!=None).all()
         if len(waiters) >= THRESHOLD:
             print("people waiting:")
             print(waiters)
