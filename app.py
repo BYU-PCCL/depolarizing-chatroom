@@ -512,6 +512,13 @@ def chatroom(cid):
     prompt = "Welcome to the chatroom. Discuss below!"
     return render_template('chatroom.html', uname = user.uname, color = user.color, uid=user.id, cid=cid, msgs=msgs, prompt=prompt)
 
+@app.route('/eliza', methods=['GET'])
+def eliza():
+    prompt = "Discuss with ELIZA"
+    return render_template('eliza.html', uname = "TEST", color = "red", prompt=prompt)
+
+
+
 """
 Waiting Room (with waiting room sockets)
 """
