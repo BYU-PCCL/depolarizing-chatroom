@@ -8,8 +8,10 @@ from os import getcwd, path, remove, environ
 from datetime import datetime as dt
 import random
 import eventlet
+from dotenv import load_dotenv
 
 eventlet.monkey_patch()
+load_dotenv(path.join(path.dirname(__file__), '.env'))
 
 # for now, have waiting room queue be a dictionary of lists (for code names)
 THRESHOLD = 2
@@ -32,7 +34,6 @@ socketio = SocketIO(app)
 # POSTGRES
 if TEST:
     # POSTGRES
-    host = "localhost"
     host = environ.get("LOCAL_HOST")
     username = environ.get("LOCAL_UNAME")
     address = environ.get("LOCAL_ADDR")
