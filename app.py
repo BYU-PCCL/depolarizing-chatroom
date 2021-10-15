@@ -51,7 +51,7 @@ app.config['SESSION_PERMANENT'] = True
 class Chatrooms(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     codeid = db.Column(db.Integer, db.ForeignKey('codes.id'))
-    prompt = db.Column(db.String(320)) 
+    prompt = db.Column(db.String(320))
     # relationship (one-to-many with users, one-to-many with messages, many-to-one with codes)
     users = db.relationship('Users', back_populates='chatroom')
     messages = db.relationship('Messages', back_populates='chatroom')
@@ -96,11 +96,11 @@ class Responses(db.Model):
     @property
     def response(self):
         return [x for x in self._response.split("|")]
-    
+
     @response.setter
     def response(self, vals):
         self._response = "|".join(vals)
-    
+
     def __repr__(self):
         print(self.questionid, self.codeid, self.response)
         return ""
@@ -124,7 +124,7 @@ class Questions(db.Model):
     @property
     def options(self):
         return [x for x in self._options.split("|")]
-    
+
     @options.setter
     def options(self, vals):
         self._options = "|".join(vals)
@@ -132,15 +132,15 @@ class Questions(db.Model):
     @property
     def range(self):
         return [float(x) for x in self._range.split("|")]
-        
+
     @range.setter
     def range(self, vals):
         self._range = "|".join(list(map(str,vals)))
-    
+
     @property
     def questions(self):
         return [x for x in self._questions.split("|")]
-    
+
     @questions.setter
     def questions(self, vals):
         self._questions = "|".join(vals)
@@ -203,7 +203,7 @@ def survey_builder():
             print("rendering question")
             return render_template("survey_builder.html", code=code, qnum=qnum)
         # or adding new question
-        else: 
+        else:
             # parse response
             code = request.form["code"]
             qnum = int(request.form["qnum"])
@@ -235,12 +235,12 @@ def parse_question_add(code, n, form):
         q.range = [float(form["min_val"]), float(form["max_val"])]
         # step is slider incrmenet
         q.step = form["step"]
-    
+
     # add question to database
     add_to_db(q)
 
     return code, n+1
-    
+
 
 """
 Database management
@@ -259,14 +259,14 @@ def initialize_test(nusers=8, ncodes=2, nchats=2):
     if path.exists("chatrooms_test.sqlite3"):
         remove("chatrooms_test.sqlite3")
         db.create_all()
-    
+
     # populate database with nusers users
     users = []
     for nu in range(nusers):
         u = Users(email=f"{nu}@email.com", uname=f"user{nu}", color=random_color())
         users.append(u)
         add_to_db(u)
-    
+
     # populate database with ncodes codes and, for each code, nchats chatrooms
     codes = []
     chats = []
@@ -275,7 +275,7 @@ def initialize_test(nusers=8, ncodes=2, nchats=2):
         # add chats
         for nch in range(nchats):
             chats.append(add_chatroom(f"Chatroom {nch}"))
-    
+
     # assign codes and chats to users
     for u, co, ch in zip(users, codes * (nusers//ncodes), chats * (nusers//(ncodes * nchats))):
         u.codeid = co.id
@@ -326,7 +326,7 @@ def process_login(email):
         # add user to session
         session["user"] = {"email": email, "uname":q.uname}
         return True
-    
+
     return False
 
 def process_signup(email, uname):
@@ -337,7 +337,7 @@ def process_signup(email, uname):
     # if contains email or uname
     if Users.query.filter_by(email=email).first() or Users.query.filter_by(uname=uname).first():
         return False
-    
+
     # add user to database
     add_to_db(Users(email=email, uname=uname, color=random_color()))
 
@@ -377,7 +377,7 @@ def validate_code(code):
     if c != None:
         if c.expiry > dt.now():
             return c
-    
+
     return False
 
 
@@ -396,7 +396,7 @@ def store_response(form, u, qtype, qnum):
         print("response ", list(form.values()))
         if qtype == "multiple":
             vals = list(form.values())[0]
-        else: 
+        else:
             vals = list(form.values())
         r.response = vals
 
@@ -418,7 +418,7 @@ def home():
 
 @app.route('/ajax_form', methods=['POST'])
 def home_form():
-    # get user 
+    # get user
     u = Users.query.filter_by(email=session["user"]["email"]).first()
     # if code in form, validate and begin survey
     if "code" in request.form:
@@ -426,8 +426,8 @@ def home_form():
         # get code response
         c = validate_code(code)
         if c:
-            # assign user the code 
-            u.code = c 
+            # assign user the code
+            u.code = c
             db.session.commit()
             # store cookie
             session["user"]["code"] = code
@@ -468,13 +468,13 @@ def get_question(code, qnum):
     if q == None:
         uid = Users.query.filter_by(email=session["user"]["email"]).first().id
         return jsonify({"redirect":f"/waiting_room/{uid}"}), 200, {'ContentType':'application/json'}
-    
+
     # otherwise, determine if is last question
     if len(c.questions) == qnum:
         submit = "Finish!"
     else:
         submit = "Next Question:"
-    
+
     # parse question
     qd = q.__dict__
     qt = q.type
@@ -533,8 +533,8 @@ def waiting_room(uid):
     # if cookie doesn't match user, we got a problem
     if u.id != int(uid):
         return jsonify({"message":"Invalid chatroom"}), 401, {'ContentType':'application/json'}
-    
-    # get number of people in that 
+
+    # get number of people in that
     nq = Users.query.filter(Users.codeid==u.code.id, Users.waiting!=None).count()
 
     return render_template("waiting_room.html", uid=uid, threshold=THRESHOLD, num_queue=nq)
@@ -546,7 +546,7 @@ def handle_waiting_room(json, methods=['GET', 'POST']):
     u = Users.query.filter_by(id = int(uid)).first()
 
     # add user to queue if not already in a chatroom
-    u.waiting = dt.now() 
+    u.waiting = dt.now()
     db.session.commit()
 
     json["num_queue"] = Users.query.filter(Users.codeid==u.code.id, Users.waiting!=None).count()
@@ -562,7 +562,7 @@ def waitlist_listener(code):
             print("people waiting:")
             print(waiters)
             us = waiters[:THRESHOLD]
-            # create chatroom 
+            # create chatroom
             chatroom = Chatrooms(codeid=c.id, prompt="This is a sample prompt for now.")
             db.session.add(chatroom)
             db.session.commit()
@@ -591,12 +591,23 @@ def handle_join_chat(json, methods=['GET', 'POST']):
 def handle_msg_sent(json, methods=['GET', 'POST']):
     # store message in database
     msg = json["body"]
-    # get chatroom 
+    # get chatroom
     chatroom = Chatrooms.query.filter_by(id=json["cid"]).first()
-    # get user 
+    # get user
     user = Users.query.filter_by(id=json["uid"]).first()
     # store message
     add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=msg, sendtime=dt.now()))
+
+    """
+    this is where you'd pass the message into gpt-3
+
+    something like:
+    response = gpt3.run(msg)
+    # add the message to the json
+    json["response"] = response
+
+    and then in chatroom.html, simply add that response to the chatbox (div.chatrwapper)
+    """
     # send response to that chatroom
     socketio.emit(f'response_{json["cid"]}', json, callback=messageReceived)
 
