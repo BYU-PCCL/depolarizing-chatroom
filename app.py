@@ -17,7 +17,7 @@ load_dotenv(path.join(path.dirname(__file__), '.env'))
 THRESHOLD = 2
 
 # app
-TEST = True
+TEST = False
 app = Flask(__name__)
 app.secret_key = environ.get("SECRET_KEY") # v secure
 app.config['SESSION_TYPE'] = 'filesystem'
