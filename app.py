@@ -178,7 +178,29 @@ def utility_processor():
 """
 Survey builder
 """
+# extra security for admin items
+def is_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("admin", False):
+            return redirect('/admin_login')
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route("/admin_login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "GET":
+        return render_template("admin_login.html")
+    else:
+        if request.form["uname"] == environ.get("ADMIN_UNAME") and request.form["pw"] == environ.get("ADMIN_PW"):
+            session["admin"] = True
+            # just redirect to home
+            return redirect("/")
+        else:
+            return render_template("admin_login.html", incorrect=True)
+
 @app.route("/survey_builder", methods=["GET", "POST"])
+@is_admin
 def survey_builder():
     if request.method == "GET":
         return render_template("survey_builder.html", code=None)
@@ -512,6 +534,7 @@ CHATROOM
 """
 @app.route('/chatroom/<cid>', methods=['GET'])
 @requires_acc
+@is_admin
 def chatroom(cid):
     # get user information from db
     user = Users.query.filter_by(email=session["user"]["email"]).first()

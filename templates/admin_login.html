@@ -1,0 +1,14 @@
+<html>
+  <head>
+  </head>
+  <body>
+    {% if incorrect %}
+    <h6>Incorrect password</h6>
+    {% endif %}
+    <form method="post" action="admin_login">
+        <input type="text" name="uname" placeholder="username">
+        <input type="password" name="pw" placeholder="password">
+        <input type="submit" value="submit">
+    </form>
+  </body>
+</html>
