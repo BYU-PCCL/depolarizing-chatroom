@@ -10,14 +10,14 @@ import random
 import eventlet
 from dotenv import load_dotenv
 
-eventlet.monkey_patch()
+#eventlet.monkey_patch()
 load_dotenv(path.join(path.dirname(__file__), '.env'))
 
 # for now, have waiting room queue be a dictionary of lists (for code names)
 THRESHOLD = 2
 
 # app
-TEST = False
+TEST = True
 app = Flask(__name__)
 app.secret_key = environ.get("SECRET_KEY") # v secure
 app.config['SESSION_TYPE'] = 'filesystem'
@@ -65,7 +65,7 @@ class Users(db.Model):
     curq = db.Column(db.Integer, default=1)
     uname = db.Column(db.String(320))
     color = db.Column(db.String(7))
-    waiting = db.Column(db.DateTime)
+    #waiting = db.Column(db.DateTime)
     # relationship (many-to-one with chatrooms, one-to-many with messages, many-to-one with codes, one-to-many with responses)
     chatroom = db.relationship('Chatrooms', back_populates='users')
     messages = db.relationship('Messages', back_populates='user')
@@ -196,7 +196,8 @@ def survey_builder():
                 #t = threading.Thread(target=waitlist_listener, args=(code,))
                 #t.setDaemon(True)
                 #t.start()
-                eventlet.spawn(waitlist_listener, code)
+                #TODO if have waitlist, add stuff
+                #eventlet.spawn(waitlist_listener, code)
                 print("thread started")
             else:
                 qnum = len(c.questions) + 1
@@ -349,6 +350,7 @@ def process_signup(email, uname):
 
 @app.route('/login', methods=["GET", "POST"])
 def login():
+    print("logging in")
     if request.method == "GET":
         return render_template("login.html")
     else:
@@ -409,8 +411,10 @@ def store_response(form, u, qtype, qnum):
 @app.route('/', methods=['GET'])
 @requires_acc
 def home():
+    print("in home")
     u = Users.query.filter_by(email=session["user"]["email"]).first()
     u.curq = 1
+    print("got user")
     db.session.commit()
     #if u.curq != 1:
     #    return get_question(u.code.code, u.curq)
@@ -466,8 +470,14 @@ def get_question(code, qnum):
 
     # if no question, redirect to chatroom
     if q == None:
-        uid = Users.query.filter_by(email=session["user"]["email"]).first().id
-        return jsonify({"redirect":f"/waiting_room/{uid}"}), 200, {'ContentType':'application/json'}
+        # get user
+        u = Users.query.filter_by(email=session["user"]["email"]).first()
+        # make chatroom for user
+        # TODO this will move to waiting room listener if we revert to that, that's why users is one-to-many
+        cr = Chatrooms(codeid=c.id, users=[u], prompt="Talk with GPT-3")
+        add_to_db(cr)
+        return jsonify({"redirect":f"/chatroom/{cr.id}"}), 200, {'ContentType':'application/json'}
+        #return jsonify({"redirect":f"/waiting_room/{uid}"}), 200, {'ContentType':'application/json'}
 
     # otherwise, determine if is last question
     if len(c.questions) == qnum:
@@ -509,9 +519,8 @@ def chatroom(cid):
         return jsonify({"message":"Invalid chatroom"}), 401, {'ContentType':'application/json'}
     # get all previously sent messages in the chatroom
     msgs = Messages.query.filter_by(chatroomid=cid).all()
-    #TODO: custom chatroom prompts (how??)
-    prompt = "Welcome to the chatroom. Discuss below!"
-    return render_template('chatroom.html', uname = user.uname, color = user.color, uid=user.id, cid=cid, msgs=msgs, prompt=prompt)
+    prompt = Chatrooms.query.filter_by(id=cid).first().prompt
+    return render_template('chatroom_bot.html', uname = user.uname, color = user.color, uid=user.id, cid=cid, msgs=msgs, prompt=prompt)
 
 @app.route('/eliza', methods=['GET'])
 def eliza():
@@ -519,10 +528,11 @@ def eliza():
     return render_template('eliza.html', uname = "TEST", color = "red", prompt=prompt)
 
 
-
 """
 Waiting Room (with waiting room sockets)
 """
+"""
+# NO NEED FOR WAITING ROOM IF PEOPLE NOT CHATTING W EACH OTHER
 # unique waiting room for each user
 @app.route("/waiting_room/<uid>")
 @requires_acc
@@ -576,6 +586,7 @@ def waitlist_listener(code):
                 print(f"Redirecting {u.id} to /chatroom/{chatroom.id}")
                 socketio.emit(f"waiting_room_redirect_{u.id}", {'redirect':f'/chatroom/{chatroom.id}'})
             db.session.commit()
+"""
 
 """
 Chatroom sockets
@@ -608,6 +619,18 @@ def handle_msg_sent(json, methods=['GET', 'POST']):
 
     and then in chatroom.html, simply add that response to the chatbox (div.chatrwapper)
     """
+    json["response"] = "GPT response"
+
+    # store GPT response in DB
+    """
+    TODO for now I'll store the message under the user b/c it seems like each message is one-to-one with a response, but we should discuss. This doesn't quite work as well b/c on reload all messages are represented as being sent by the sender
+    """
+    add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=json["response"], sendtime=dt.now()))
+
+    """
+    We would also check here to confirm if the user has exceeded their chat limit and send a respone to terminate the chatroom. Another thing to discuss
+    """
+
     # send response to that chatroom
     socketio.emit(f'response_{json["cid"]}', json, callback=messageReceived)
 
@@ -616,4 +639,4 @@ if __name__ == '__main__':
     #initialize_test()
 
     # run app
-    socketio.run(app, debug=TEST)
+    socketio.run(app, debug=TEST, port=8000)

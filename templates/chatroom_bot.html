@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/stylesheet.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;500&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.3/socket.io.js"></script>
+</head>
+<body>
+  <!-- add sounds -->
+  <div class="flexwrap purple">
+    <div class="chatwrapper">
+      <div class="chat_heading">
+        <h1 >{{prompt}}</h1>
+      </div>
+      <div class="chats">
+        {% set vars = {"prev":-1} %}
+        {% for msg in msgs %}
+          {% if msg.senderid == uid %}
+            {% set cls = "sent" %}
+          {% else %}
+            {% set cls = "received" %}
+          {% endif %}
+
+          {% if vars.prev|int() != msg.senderid|int() %}
+            <p class="uname {{cls}}" style="color: {{msg.user.color}}">{{msg.user.uname}}</p>
+          {% endif %}
+
+          {% if vars.update({"prev": msg.senderid}) %}{% endif %}
+
+          <p class="msg {{cls}}" style="color: {{msg.user.color}}; border-color:{{msg.user.color}}">{{msg.user.uname}}: {{msg.msg}}</p>
+        {% endfor %}
+      </div>
+
+      <form class="chatform" action="" method="POST">
+        <textarea class="message_box" placeholder="Chat with your group here!"></textarea>
+        <input class="submit_chat" value="↑" type="submit"/>
+      </form>
+      <script>
+      // submit on enter
+      $(".message_box").keypress(function (e) {
+          if(e.which == 13 && !e.shiftKey) {
+              $(this).closest("form").submit();
+              e.preventDefault();
+          }
+      });
+      </script>
+    </div>
+
+  </div>
+
+  <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+  <script type="text/javascript">
+// scroll to bottom of chats
+$(".chats").scrollTop($(".chats").prop("scrollHeight"));
+
+// get last msg sender to see if need to update
+var prev = {{vars.prev}};
+
+    // connect socket
+var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+socket.on( 'connect', function() {
+
+  var form = $( 'form' ).on( 'submit', function( e ) {
+    e.preventDefault();
+    let user_input = $( 'textarea.message_box' ).val()
+    if (user_input == ""){
+      return;
+    };
+    // add sent message to chatbox
+    var cls = "sent"
+    // add header to message
+    $('div.chats').append('<p class="uname '+cls+'" style="color:#540B15">{{uname}}</p>');
+    // add message to chatbox
+    $('div.chats').append('<p class="msg '+cls+'" style="color:#540B15; border-color:#1D1D52">'+user_input+'</p>');
+    $(".chats").scrollTop($(".chats").prop("scrollHeight"));
+
+    socket.emit( 'post', {
+      uname : "{{uname}}",
+      uid : {{uid}},
+      body : user_input,
+      color : "{{color}}",
+      cid : {{cid}}
+    } );
+    // clear textarea
+    $('.message_box').val('');
+    // play send sound
+    //document.getElementById("sent_sound").play()
+    // ELIZA
+    //console.log("sending eliza")
+    //socket.emit( 'eliza', {msg : user_input})
+
+    //$( 'textarea.message_box' ).val( '' ).focus()
+  } );
+  socket.emit( 'join_chatroom', {
+    uid: {{uid}},
+    uname: "{{uname}}"
+  } )
+} )
+
+socket.on('joined_chatroom', function(msg){
+  // ELIZA
+  //socket.emit('eliza', {msg: 'start'})
+  //document.getElementById("received_sound").play()
+
+  if ({{uid}} != msg.uid){
+    $('div.chats').append( '<p>'+msg.uname+' joined the chat</p>');
+    $(".chats").scrollTop($(".chats").prop("scrollHeight"));
+  }
+})
+
+socket.on( 'response_{{cid}}', function( msg ) {
+
+  var cls = "received"
+  // add header to message
+  $('div.chats').append('<p class="uname '+cls+'" style="color:#1D1D52">GPT-3</p>');
+  // add message
+  $('div.chats').append('<p class="msg '+cls+'" style="color:#1D1D52; border-color:#1D1D52">'+msg.response+'</p>');
+  $(".chats").scrollTop($(".chats").prop("scrollHeight"));
+  /*
+  $( 'div.chatwrapper' ).append( '<div class="msg '+cls+'"><h4 class="username">'+msg.uname+'</h4><p class="message_body">'+msg.body+'</p></div>' )
+  var chatbox = document.getElementById('chatwrapper')
+  chatbox.scrollTop = chatbox.scrollHeight
+  console.log(chatbox.scrollHeight)
+  */
+})
+
+  </script>
+  <script src="{{ url_for('static', filename='js/chatroom.js') }}"></script>
+</body>
+</html>
