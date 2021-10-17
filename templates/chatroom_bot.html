@@ -59,8 +59,8 @@ $(".chats").scrollTop($(".chats").prop("scrollHeight"));
 // get last msg sender to see if need to update
 var prev = {{vars.prev}};
 
-    // connect socket
-var socket = io.connect('http://' + document.domain + ':' + location.port);
+// connect socket
+var socket = io.connect();
 
 socket.on( 'connect', function() {
 
