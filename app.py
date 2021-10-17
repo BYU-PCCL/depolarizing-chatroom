@@ -624,13 +624,17 @@ def handle_join_chat(json, methods=['GET', 'POST']):
 @socketio.on('post')
 def handle_msg_sent(json, methods=['GET', 'POST']):
     # store message in database
+    print("in handle_msg")
     msg = json["body"]
     # get chatroom
     chatroom = Chatrooms.query.filter_by(id=json["cid"]).first()
+    print("chatroom found")
     # get user
     user = Users.query.filter_by(id=json["uid"]).first()
+    print("user found")
     # store message
     add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=msg, sendtime=dt.now()))
+    print("message added")
 
     """
     this is where you'd pass the message into gpt-3
@@ -643,12 +647,14 @@ def handle_msg_sent(json, methods=['GET', 'POST']):
     and then in chatroom.html, simply add that response to the chatbox (div.chatrwapper)
     """
     json["response"] = "GPT response"
+    print("gpt response")
 
     # store GPT response in DB
     """
     TODO for now I'll store the message under the user b/c it seems like each message is one-to-one with a response, but we should discuss. This doesn't quite work as well b/c on reload all messages are represented as being sent by the sender
     """
     add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=json["response"], sendtime=dt.now()))
+    print("gpt message added")
 
     """
     We would also check here to confirm if the user has exceeded their chat limit and send a respone to terminate the chatroom. Another thing to discuss
@@ -663,4 +669,3 @@ if __name__ == '__main__':
 
     # run app
     socketio.run(app, debug=TEST, port=8000)
-    
