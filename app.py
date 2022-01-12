@@ -397,12 +397,12 @@ def login():
     else:
         # TODO if change login logic (e.g. password) will need to change
         # if logging in, check if email is real
-        if len(request.form) == 2:
+        if len(request.form) == 1:
             # if processing login fails, redirect to login (1 field -- email)
             if not process_login(request.form["email"]):
                 return jsonify({"msg":"Email not found"}), 400, {'ContentType':'application/json'}
         # otherwise, signing up (2 fields -- email and uname)
-        elif len(request.form) == 3:
+    elif len(request.form) == 2:
             # if processing signup fails, redirect to login
             if not process_signup(request.form["email"], request.form["uname"]):
                 return jsonify({"msg":"Email or username already taken."}), 400, {'ContentType':'application/json'}
