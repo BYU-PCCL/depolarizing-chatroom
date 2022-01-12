@@ -454,10 +454,10 @@ def store_response(form, u, qtype, qnum):
 def home():
     u = Users.query.filter_by(email=session["user"]["email"]).first()
     # redirect user wherever they need to go
-    if user.status == "survey":
+    if u.status == "survey":
         return get_question(u.code.code, u.curq)
-    elif user.status == "chatroom":
-        redirect(f'/chatroom/{user.chatroomid}')
+    elif u.status == "chatroom":
+        redirect(f'/chatroom/{u.chatroomid}')
 
     return render_template('index.html', popup='popup.html')
 
