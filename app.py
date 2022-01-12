@@ -73,6 +73,7 @@ class Users(db.Model):
     uname = db.Column(db.String(320))
     color = db.Column(db.String(7))
     msg_count = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(20), default="survey")
     #waiting = db.Column(db.DateTime)
     # relationship (many-to-one with chatrooms, one-to-many with messages, many-to-one with codes, one-to-many with responses)
     chatroom = db.relationship('Chatrooms', back_populates='users')
