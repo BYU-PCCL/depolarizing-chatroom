@@ -73,7 +73,7 @@ class Users(db.Model):
     uname = db.Column(db.String(320))
     color = db.Column(db.String(7))
     msg_count = db.Column(db.Integer, default=0)
-    status = db.Column(db.String(20), default="survey")
+    status = db.Column(db.String(20), default="code")
     #waiting = db.Column(db.DateTime)
     # relationship (many-to-one with chatrooms, one-to-many with messages, many-to-one with codes, one-to-many with responses)
     chatroom = db.relationship('Chatrooms', back_populates='users')
@@ -452,13 +452,13 @@ def store_response(form, u, qtype, qnum):
 @app.route('/', methods=['GET'])
 @requires_acc
 def home():
-    print("in home")
     u = Users.query.filter_by(email=session["user"]["email"]).first()
-    u.curq = 1
-    print("got user")
-    db.session.commit()
-    #if u.curq != 1:
-    #    return get_question(u.code.code, u.curq)
+    # redirect user wherever they need to go
+    if user.status == "survey":
+        return get_question(u.code.code, u.curq)
+    elif user.status == "chatroom":
+        redirect(f'/chatroom/{user.chatroomid}')
+
     return render_template('index.html', popup='popup.html')
 
 @app.route('/ajax_form', methods=['POST'])
@@ -473,10 +473,11 @@ def home_form():
         if c:
             # assign user the code
             u.code = c
+            u.status = "survey"
             db.session.commit()
             # store cookie
             session["user"]["code"] = code
-            session["user"]["q_num"] = 1
+
             # start survey
             return get_question(code, 1)
         else:
@@ -491,8 +492,8 @@ def home_form():
             print(request.form.getlist(qname))
             form[qname] = request.form.getlist(qname)
         store_response(form, u, qtype, u.curq)
-        # update session and user
-        session["user"]["q_num"] += 1
+
+        # update user
         u.curq += 1
         db.session.commit()
         return get_question(u.code.code, u.curq)
@@ -517,6 +518,11 @@ def get_question(code, qnum):
         # TODO this will move to waiting room listener if we revert to that, that's why users is one-to-many
         cr = Chatrooms(codeid=c.id, users=[u], prompt="Talk with GPT-3")
         add_to_db(cr)
+        # update user
+        u.status = "chatroom"
+        u.chatroomid = cr.id
+        db.session.commit()
+
         return jsonify({"redirect":f"/chatroom/{cr.id}"}), 200, {'ContentType':'application/json'}
         #return jsonify({"redirect":f"/waiting_room/{uid}"}), 200, {'ContentType':'application/json'}
 
