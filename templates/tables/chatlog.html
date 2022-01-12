@@ -1,0 +1,5 @@
+{% for msg in row.messages %}
+<p>{{msg.user.uname}}@{{msg.sendtime}}</p>
+<p>{{msg.msg}}</p>
+</br>
+{%endfor%}

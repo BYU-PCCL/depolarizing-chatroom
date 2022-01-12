@@ -9,15 +9,17 @@ from datetime import datetime as dt
 import random
 import eventlet
 from dotenv import load_dotenv
+from flask_migrate import Migrate
 
 #eventlet.monkey_patch()
 load_dotenv(path.join(path.dirname(__file__), '.env'))
 
 # for now, have waiting room queue be a dictionary of lists (for code names)
 THRESHOLD = 2
+MSG_LIMIT = 5
+TEST = False
 
 # app
-TEST = False
 app = Flask(__name__)
 app.secret_key = environ.get("SECRET_KEY") # v secure
 app.config['SESSION_TYPE'] = 'filesystem'
@@ -47,6 +49,8 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 app.config['SESSION_PERMANENT'] = True
 
+migrate = Migrate(app, db)
+
 # create database
 class Chatrooms(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -57,6 +61,9 @@ class Chatrooms(db.Model):
     messages = db.relationship('Messages', back_populates='chatroom')
     code = db.relationship('Codes', back_populates='chatrooms')
 
+    def __repr__(self):
+        return f"{self.code}:{self.prompt}, {self.users}"
+
 class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     chatroomid = db.Column(db.Integer, db.ForeignKey('chatrooms.id'))
@@ -65,6 +72,7 @@ class Users(db.Model):
     curq = db.Column(db.Integer, default=1)
     uname = db.Column(db.String(320))
     color = db.Column(db.String(7))
+    msg_count = db.Column(db.Integer, default=0)
     #waiting = db.Column(db.DateTime)
     # relationship (many-to-one with chatrooms, one-to-many with messages, many-to-one with codes, one-to-many with responses)
     chatroom = db.relationship('Chatrooms', back_populates='users')
@@ -72,15 +80,22 @@ class Users(db.Model):
     code = db.relationship('Codes', back_populates='users')
     responses = db.relationship('Responses', back_populates='user')
 
+    def __repr__(self):
+        return f"{self.uname}:{self.code}"
+
 class Messages(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     chatroomid = db.Column(db.Integer, db.ForeignKey('chatrooms.id'))
     senderid = db.Column(db.Integer, db.ForeignKey('users.id'))
     msg = db.Column(db.Text, nullable=False)
     sendtime = db.Column(db.DateTime, nullable=False)
+    bot = db.Column(db.Boolean, default=False)
     # relationship (many-to-one with chatroom, many-to-one with user)
     chatroom = db.relationship('Chatrooms', back_populates='messages')
     user = db.relationship('Users', back_populates='messages')
+
+    def __repr__(self):
+        return f"{self.user}@{self.chatroom}: {self.msg}"
 
 class Responses(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -102,8 +117,7 @@ class Responses(db.Model):
         self._response = "|".join(vals)
 
     def __repr__(self):
-        print(self.questionid, self.codeid, self.response)
-        return ""
+        return f"{self.user}@{self.question}: {self.response}"
 
 class Questions(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -145,6 +159,9 @@ class Questions(db.Model):
     def questions(self, vals):
         self._questions = "|".join(vals)
 
+    def __repr__(self):
+        return self.question
+
 class Codes(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), nullable=False, unique=True)
@@ -155,8 +172,8 @@ class Codes(db.Model):
     responses = db.relationship('Responses', back_populates='code')
     questions = db.relationship('Questions', back_populates='code', order_by=Questions.number.desc)
 
-
-db.create_all()
+    def __repr__(self):
+        return self.code
 
 def add_to_db(data):
     'just cuz I forget to commit frequently'
@@ -194,8 +211,8 @@ def admin_login():
     else:
         if request.form["uname"] == environ.get("ADMIN_UNAME") and request.form["pw"] == environ.get("ADMIN_PW"):
             session["admin"] = True
-            # just redirect to home
-            return redirect("/")
+            # to admin portal
+            return redirect("/admin")
         else:
             return render_template("admin_login.html", incorrect=True)
 
@@ -345,6 +362,7 @@ def process_login(email):
     If database contains User, log them in
     """
     q = Users.query.filter_by(email=email).first()
+    print(q)
     if q != None:
         # add user to session
         session["user"] = {"email": email, "uname":q.uname}
@@ -378,12 +396,12 @@ def login():
     else:
         # TODO if change login logic (e.g. password) will need to change
         # if logging in, check if email is real
-        if len(request.form) == 1:
+        if len(request.form) == 2:
             # if processing login fails, redirect to login (1 field -- email)
             if not process_login(request.form["email"]):
                 return jsonify({"msg":"Email not found"}), 400, {'ContentType':'application/json'}
         # otherwise, signing up (2 fields -- email and uname)
-        elif len(request.form) == 2:
+        elif len(request.form) == 3:
             # if processing signup fails, redirect to login
             if not process_signup(request.form["email"], request.form["uname"]):
                 return jsonify({"msg":"Email or username already taken."}), 400, {'ContentType':'application/json'}
@@ -624,17 +642,18 @@ def handle_join_chat(json, methods=['GET', 'POST']):
 @socketio.on('post')
 def handle_msg_sent(json, methods=['GET', 'POST']):
     # store message in database
-    print("in handle_msg")
+
     msg = json["body"]
     # get chatroom
     chatroom = Chatrooms.query.filter_by(id=json["cid"]).first()
-    print("chatroom found")
+
     # get user
     user = Users.query.filter_by(id=json["uid"]).first()
-    print("user found")
+    user.msg_count += 1 # increment user message count
+
     # store message
     add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=msg, sendtime=dt.now()))
-    print("message added")
+
 
     """
     this is where you'd pass the message into gpt-3
@@ -651,18 +670,32 @@ def handle_msg_sent(json, methods=['GET', 'POST']):
 
     # store GPT response in DB
     """
-    TODO for now I'll store the message under the user b/c it seems like each message is one-to-one with a response, but we should discuss. This doesn't quite work as well b/c on reload all messages are represented as being sent by the sender
+    Store message sent by GPT as bot response in DB (bot=True)
     """
-    add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=json["response"], sendtime=dt.now()))
+    add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=json["response"], sendtime=dt.now(), bot=True))
     print("gpt message added")
 
     """
-    We would also check here to confirm if the user has exceeded their chat limit and send a respone to terminate the chatroom. Another thing to discuss
+    Check if user has exceeded chat limit, if so redirect to survey
+    TODO what should the limit be?
     """
+    if user.msg_count > MSG_LIMIT:
+        set_user_status(user, "postsurvey")
+        redirect('/postsurvey')
 
     # send response to that chatroom
     socketio.emit(f'response_{json["cid"]}', json, callback=messageReceived)
 
+"""
+Admin panel
+"""
+@app.route("/admin")
+@is_admin
+def admin():
+    tables = {"users":Users, "chatrooms":Chatrooms, "codes":Codes}
+    for name, table in tables.items():
+        tables[name] = table.query.limit(3).all()
+    return render_template("data.html", data=tables)
 
 if __name__ == '__main__':
     #initialize_test()
