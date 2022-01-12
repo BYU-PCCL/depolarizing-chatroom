@@ -6,6 +6,7 @@
     <th>Survey Code</th>
     <th>Survey responses</th>
     <th>Chat log</th>
+    <th>Chat count</th>
   </tr>
   <tr>
   {% for row in data['users'] %}
@@ -14,6 +15,7 @@
     <td>{{row.code}}</td>
     <td>{{row.responses}}</td>
     <td>{% include "tables/chatlog.html" %}</td>
+    <td>{{ row.msg_count }}</td>
   {%endfor%}
   </tr>
 </table>
