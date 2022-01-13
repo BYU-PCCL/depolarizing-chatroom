@@ -20,7 +20,7 @@ MSG_LIMIT = 5
 TEST = False
 
 # app
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='')
 app.secret_key = environ.get("SECRET_KEY") # v secure
 app.config['SESSION_TYPE'] = 'filesystem'
 
@@ -393,7 +393,7 @@ def process_signup(email, uname):
 def login():
     print("logging in")
     if request.method == "GET":
-        return render_template("login.html")
+        return render_template("login_bs.html")
     else:
         # TODO if change login logic (e.g. password) will need to change
         # if logging in, check if email is real
@@ -708,4 +708,4 @@ if __name__ == '__main__':
     #initialize_test()
 
     # run app
-    socketio.run(app, debug=TEST, port=8000)
+    socketio.run(app, debug=True, port=8000)

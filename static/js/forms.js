@@ -32,7 +32,7 @@ $(document).ready(function(){
                 values[field.name] = field.value;
             }
         });
-        console.log(values);
+        
         $.ajax({
           type: 'POST',
           url: url,
@@ -51,7 +51,7 @@ $(document).ready(function(){
             if ("redirect" in data){
               console.log(data['redirect'])
               window.location.href = data['redirect'];
-            } else { 
+            } else {
                 // load in next question
                 $('.ajaxform > .question').html(data['question']);
                 $('.ajaxform > .form_submit').val(data['submit']);
@@ -70,5 +70,5 @@ $(document).ready(function(){
           }
         });
     });
-  
+
 });
