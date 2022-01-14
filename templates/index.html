@@ -19,16 +19,16 @@
     <link href="{{url_for('static', filename='css/h-custom.css')}}" rel="stylesheet">
 <body>
 
-    <section class="vh-100">
+<section class="vh-100">
     <div class="container-fluid">
 
         <div class="row d-flex align-items-center justify-content-center">
-            <div class="col-md-10 col-sm-10 col-lg-8 ">
+            <div class="col-md-10 col-lg-8 ">
                 <form class="ajaxform" data-url="/ajax_form">
                     <h2 class="question pb-3">Enter your survey code below:</h2>
 
                     <div class="form-outline" id="single_input">
-                      <input type="text" name="code" id="input_form" class="form-control border-bottom" />
+                      <input type="text" name="code" id="input_form" class="form-control form-control-lg" />
                       <label class="form-label" for="input_form">Enter your survey code</label>
                     </div>
 
@@ -44,7 +44,8 @@
         </div>
 
     </div>
-    </section>
+</section>
+
     <!-- error modal -->
     <div id="errorModal" class="modal" tabindex="-1" role="dialog">
       <div class="modal-dialog" role="document">

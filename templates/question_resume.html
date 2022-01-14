@@ -20,8 +20,11 @@
 <body>
 
 
-    <div class="container-fluid vh-100 d-flex align-items-center justify-content-center">
-        <div class="col-md-8 col-sm-10 ">
+    <section class="vh-100">
+    <div class="container-fluid">
+
+        <div class="row d-flex align-items-center justify-content-center">
+            <div class="col-md-10 col-lg-8 ">
             <form class="ajaxform" data-url="/ajax_form">
 
                 <h2 class="question pb-3">{{json["question"]}}</h2>
@@ -39,9 +42,11 @@
                     style="padding-left: 2.5rem; padding-right: 2.5rem;">{{json["submit"]}}</button>
                 </div>
             </form>
-        </div>
+            </div>
 
+        </div>
     </div>
+</section>
 
     <!-- error modal -->
     <div id="errorModal" class="modal" tabindex="-1" role="dialog">
