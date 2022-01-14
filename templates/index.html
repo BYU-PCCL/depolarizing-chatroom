@@ -35,6 +35,9 @@
                       <button type="submit" class="btn btn-primary btn-lg"
                         style="padding-left: 2.5rem; padding-right: 2.5rem;">Begin Survey</button>
                     </div>
+                    {% if is_post %}
+                    <input type="hidden" name="is_post" value="true">
+                    {% endif %}
                 </form>
             </div>
         </div>

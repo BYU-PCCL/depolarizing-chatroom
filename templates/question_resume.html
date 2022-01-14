@@ -23,10 +23,15 @@
     <div class="container vh-100 d-flex align-items-center justify-content-center">
         <div class="col-md-6 col-sm-10 ">
             <form class="ajaxform" data-url="/ajax_form">
+
                 <h2 class="question pb-3">{{json["question"]}}</h2>
 
                 <div class="form-outline" id="single_input">
-                  {{json["rendered_form"]}}
+                  {{json["rendered_form"]|safe}}
+                  <input type="hidden" name="qtype" value="{{json['type']}}">
+                  {% if json["is_post"] %}
+                  <input type="hidden" name="is_post" value="true">
+                  {% endif %}
                 </div>
 
                 <div class="text-center text-lg-start mt-4 pt-2">

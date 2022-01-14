@@ -134,6 +134,7 @@ class Questions(db.Model):
     number = db.Column(db.Integer, nullable=False) # question number
     start = db.Column(db.Float)
     step = db.Column(db.Float)
+    is_post = db.Column(db.Boolean, default=False)
     _options = db.Column(db.Text) # pipe | delineated options
     _range = db.Column(db.Text) # pipe | delineated min and max (for grid)
     _questions = db.Column(db.Text) # pipe | delineated questions (for grid, each row)
@@ -198,6 +199,10 @@ def utility_processor():
         print(int(id1) == int(id2))
         return int(id1) == int(id2)
     return dict(comp_ids=comp_ids)
+
+@app.template_filter()
+def format_dt(val):
+    return val.strftime("%H:%M | %b %d, '%y")
 
 """
 Password management
@@ -265,12 +270,12 @@ def survey_builder():
             code = request.form["code"]
             qnum = int(request.form["qnum"])
             code, qnum = parse_question_add(code, qnum, request.form)
-            return render_template("survey_builder.html", code=code, qnum=qnum)
+            return render_template("survey_builder.html", code=code, qnum=qnum, is_post=("is_post" in request.form))
 
 def parse_question_add(code, n, form):
     # set question
     qtype = form["type"]
-    q = Questions(question=form["question"], type=qtype, number=n)
+    q = Questions(question=form["question"], type=qtype, number=n, is_post=("is_post" in request.form))
 
     # get code
     c = Codes.query.filter_by(code=code).first()
@@ -448,8 +453,8 @@ def validate_code(code):
     return False
 
 
-def store_response(form, u, qtype, qnum):
-    r = Responses()
+def store_response(form, u, qtype, qnum, is_post):
+    r = Responses(is_post=is_post)
     r.userid = u.id
     r.questionid = u.code.questions[qnum - 1].id # get question id from user's associated code
     r.codeid = u.code.id
@@ -480,17 +485,24 @@ def home():
     # redirect user wherever they need to go
 
     if u.status == "survey":
-        return render_template("question_resume.html", json=get_question(u.code.code, u.curq))
+        return render_template("question_resume.html", json=get_question(u.code.code, u.curq, False))
     elif u.status == "chatroom":
         return redirect(f'/chatroom/{u.chatroomid}')
+    elif u.status == "postsurvey":
+        return render_template("question_resume.html", json=get_question(u.code.code, u.curq, True), is_post=True)
 
     return render_template('index.html', popup='popup.html')
+
+@app.route("/thankyou", methods=["GET"])
+def thankyou():
+    return "<h1>Thank you</h1>"
 
 @app.route('/ajax_form', methods=['POST'])
 def home_form():
     # get user
     u = Users.query.filter_by(email=session["user"]["email"]).first()
     # if code in form, validate and begin survey
+    print(request.form)
     if "code" in request.form:
         code = request.form["code"]
         # get code response
@@ -504,7 +516,7 @@ def home_form():
             session["user"]["code"] = code
 
             # start survey
-            return get_question(code, 1)
+            return jsonify(get_question(code, 1, False)), 200, {'ContentType':'application/json'}
         else:
             return jsonify({"msg":"Invalid code"}), 400, {'ContentType':'application/json'}
     # otherwise, if qtype is in the form, it's a question
@@ -517,17 +529,17 @@ def home_form():
             print(request.form.getlist(qname))
             form[qname] = request.form.getlist(qname)
         print(f"storing response {u.curq}")
-        store_response(form, u, qtype, u.curq)
+        store_response(form, u, qtype, u.curq, ("is_post" in form))
 
         # update user
         u.curq += 1
         db.session.commit()
 
-        return get_question(u.code.code, u.curq)
+        return jsonify(get_question(u.code.code, u.curq, form.get("is_post", False))), 200, {'ContentType':'application/json'}
 
-    return jsonify({"message":"Invalid submission - no form data"}), 401, {'ContentType':'application/json'}
+    return jsonify({"msg":"Invalid submission - no form data"}), 401, {'ContentType':'application/json'}
 
-def get_question(code, qnum):
+def get_question(code, qnum, is_post):
     """
     code: str, survey code
     qnum: int, # question user is on (1 is first)
@@ -535,12 +547,16 @@ def get_question(code, qnum):
     """
     # get question
     c = Codes.query.filter_by(code=code).first()
-    q = Questions.query.filter_by(number=qnum, codeid=c.id).first()
+    q = Questions.query.filter_by(number=qnum, codeid=c.id, is_post=is_post).first()
 
-    # if no question, redirect to chatroom
+    # if no question, either redirect to finish or chatroom
     if q == None:
         # get user
         u = Users.query.filter_by(email=session["user"]["email"]).first()
+        if is_post:
+            u.status = "finished"
+            db.session.commit()
+            return {"redirect":"/thankyou"}
         # make chatroom for user
         # TODO this will move to waiting room listener if we revert to that, that's why users is one-to-many
         cr = Chatrooms(codeid=c.id, users=[u], prompt="Talk with GPT-3")
@@ -550,13 +566,10 @@ def get_question(code, qnum):
         u.chatroomid = cr.id
         db.session.commit()
 
-        return jsonify({"redirect":f"/chatroom/{cr.id}"}), 200, {'ContentType':'application/json'}
+        return {"redirect":f"/chatroom/{cr.id}"}
         #return jsonify({"redirect":f"/waiting_room/{uid}"}), 200, {'ContentType':'application/json'}
 
     # otherwise, determine if is last question
-    print(len(c.questions))
-    print(c.questions)
-    print("_________THIS")
     if len(c.questions) == qnum:
         submit = "Finish!"
     else:
@@ -580,9 +593,8 @@ def get_question(code, qnum):
     else:
         qd["opts"] = q.options
 
-    return jsonify({"question":q.question, "type":qt, "submit":submit,
-            "rendered_form": render_template("question_bs.html",**qd)}),\
-                200, {'ContentType':'application/json'}
+    return {"question":q.question, "type":qt, "submit":submit, "is_post":is_post,
+            "rendered_form": render_template("question_bs.html",**qd)}
 
 """
 CHATROOM
@@ -598,7 +610,7 @@ def chatroom(cid):
     # get all previously sent messages in the chatroom
     msgs = Messages.query.filter_by(chatroomid=cid).all()
     prompt = Chatrooms.query.filter_by(id=cid).first().prompt
-    return render_template('chatroom_bot.html', uname = user.uname, color = user.color, uid=user.id, cid=cid, msgs=msgs, prompt=prompt)
+    return render_template('chatroom_bs.html', uname = user.uname, color = user.color, uid=user.id, cid=cid, msgs=msgs, prompt=prompt, msg_count=user.msg_count, msg_limit=MSG_LIMIT)
 
 @app.route('/eliza', methods=['GET'])
 def eliza():
@@ -711,6 +723,8 @@ def handle_msg_sent(json, methods=['GET', 'POST']):
     Store message sent by GPT as bot response in DB (bot=True)
     """
     add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=json["response"], sendtime=dt.now(), bot=True))
+    json["time"] = format_dt(dt.now())
+    json["ct"] = user.msg_count
     print("gpt message added")
 
     """
@@ -719,7 +733,8 @@ def handle_msg_sent(json, methods=['GET', 'POST']):
     """
     if user.msg_count > MSG_LIMIT:
         user.status="postsurvey"
-        return redirect('/postsurvey')
+        db.session.commit()
+        json["redirect"] = "/"
 
     # send response to that chatroom
     socketio.emit(f'response_{json["cid"]}', json, callback=messageReceived)

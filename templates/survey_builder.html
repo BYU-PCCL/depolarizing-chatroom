@@ -70,7 +70,8 @@
             </span>
         </ol>
 
-
+        <input type="checkbox" name="is_post" {{"checked" if is_post}}>
+        <label for="is_post">Is post-survey question</label>
         <input type="submit">
     </form>
 
@@ -91,6 +92,8 @@
         </span>
         </ol>
 
+        <input type="checkbox" name="is_post" {{"checked" if is_post}}>
+        <label for="is_post">Is post-survey question</label>
         <input type="submit">
     </form>
 
@@ -110,8 +113,9 @@
                     </span>
             </span>
         </ol>
-    
 
+        <input type="checkbox" name="is_post" {{"checked" if is_post}}>
+        <label for="is_post">Is post-survey question</label>
         <input type="submit">
     </form>
 
@@ -141,6 +145,8 @@
             <input name="step" type="number" required>
         </span>
 
+        <input type="checkbox" name="is_post" {{"checked" if is_post}}>
+        <label for="is_post">Is post-survey question</label>
         <input type="submit">
     </form>
     {% endif %}
