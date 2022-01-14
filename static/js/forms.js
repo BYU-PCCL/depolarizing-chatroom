@@ -32,7 +32,7 @@ $(document).ready(function(){
                 values[field.name] = field.value;
             }
         });
-        
+
         $.ajax({
           type: 'POST',
           url: url,
@@ -40,8 +40,10 @@ $(document).ready(function(){
           data: values,
           dataType: "json",
           error: function(data){
-              console.log(data)
-              display_popup(data.responseJSON['msg']);
+              console.log('error in submit')
+              console.log(data.responseJSON.msg);
+              $('#modal-body-text').html(data.responseJSON.msg);
+              $("#errorModal").modal('toggle');
           },
           success: function(data){
             // preemptively hide popup
@@ -52,9 +54,11 @@ $(document).ready(function(){
               console.log(data['redirect'])
               window.location.href = data['redirect'];
             } else {
+                console.log(data);
                 // load in next question
                 $('.ajaxform > .question').html(data['question']);
-                $('.ajaxform > .form_submit').val(data['submit']);
+                $('button[type="submit"]').html(data['submit']);
+                console.log($('#single_input'));
                 $('#single_input').html(data['rendered_form']);
                 // add question type
                 if ($("input[name='qtype']").length){

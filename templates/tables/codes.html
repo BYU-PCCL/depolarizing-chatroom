@@ -5,11 +5,12 @@
     <th>Expiration</th>
     <th>Users</th>
   </tr>
-  <tr>
   {% for row in data['codes'] %}
+  <tr>
     <td>{{row.code}}</td>
     <td>{{row.expiry}}</td>
     <td>{{row.users}}</td>
-  {%endfor%}
+    <td>{{row.questions}}</td>
   </tr>
+  {%endfor%}
 </table>

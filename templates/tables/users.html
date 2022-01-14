@@ -9,8 +9,8 @@
     <th>Chat count</th>
     <th>Status</th>
   </tr>
-  <tr>
   {% for row in data['users'] %}
+  <tr>
     <td>{{row.uname}}</td>
     <td>{{row.email}}</td>
     <td>{{row.code}}</td>
@@ -18,6 +18,6 @@
     <td>{% include "tables/chatlog.html" %}</td>
     <td>{{ row.msg_count }}</td>
     <td>{{ row.status }}</td>
-  {%endfor%}
   </tr>
+  {%endfor%}
 </table>

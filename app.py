@@ -10,6 +10,9 @@ import random
 import eventlet
 from dotenv import load_dotenv
 from flask_migrate import Migrate
+from secrets import choice
+from string import ascii_letters, digits
+from hashlib import sha256
 
 #eventlet.monkey_patch()
 load_dotenv(path.join(path.dirname(__file__), '.env'))
@@ -69,6 +72,8 @@ class Users(db.Model):
     chatroomid = db.Column(db.Integer, db.ForeignKey('chatrooms.id'))
     codeid = db.Column(db.Integer, db.ForeignKey('codes.id'))
     email = db.Column(db.String(320), nullable=False, unique=True)
+    password = db.Column(db.String(64), nullable=False)
+    salt = db.Column(db.String(7), nullable=False)
     curq = db.Column(db.Integer, default=1)
     uname = db.Column(db.String(320))
     color = db.Column(db.String(7))
@@ -104,6 +109,7 @@ class Responses(db.Model):
     codeid = db.Column(db.Integer, db.ForeignKey('codes.id'))
     questionid = db.Column(db.Integer, db.ForeignKey('questions.id'))
     _response = db.Column(db.Text) # potential list delineated by pipes |
+    is_post = db.Column(db.Boolean, nullable=False, default=False)
     # relationship (many-to-one with Codes, many-to-one with Users, many-to-one with Questions)
     code = db.relationship('Codes', back_populates='responses')
     user = db.relationship('Users', back_populates='responses')
@@ -192,6 +198,16 @@ def utility_processor():
         print(int(id1) == int(id2))
         return int(id1) == int(id2)
     return dict(comp_ids=comp_ids)
+
+"""
+Password management
+"""
+def sec(n):
+    alphabet = ascii_letters + digits
+    return ''.join(choice(alphabet) for _ in range(n))
+
+def hash_pw(p, s):
+    return sha256(bytes(p+s, "utf-8")).hexdigest()
 
 """
 Survey builder
@@ -358,20 +374,21 @@ def requires_acc(f):
 		return f(*args, **kwargs)
 	return decorated
 
-def process_login(email):
+def process_login(email, pw):
     """
     If database contains User, log them in
     """
     q = Users.query.filter_by(email=email).first()
-    print(q)
     if q != None:
-        # add user to session
+        # confirm user password
+        if hash_pw(pw, q.salt) != q.password:
+            return False
         session["user"] = {"email": email, "uname":q.uname}
         return True
 
     return False
 
-def process_signup(email, uname):
+def process_signup(email, uname, pw):
     """
     If database has email or username, return false
     otherwise, add user to Users
@@ -381,33 +398,40 @@ def process_signup(email, uname):
         return False
 
     # add user to database
-    add_to_db(Users(email=email, uname=uname, color=random_color()))
+    salt = sec(7)
+    add_to_db(Users(email=email, uname=uname, password=hash_pw(pw, salt), salt=salt, color=random_color()))
 
     # add user to session
     session["user"] = {"email": email, "uname": uname}
 
     return True
 
+@app.route('/signup', methods=["GET"])
+def signup():
+    return render_template("signup_bs.html")
 
-@app.route('/login', methods=["GET", "POST"])
+@app.route('/login', methods=["GET"])
 def login():
-    print("logging in")
-    if request.method == "GET":
-        return render_template("login_bs.html")
-    else:
-        # TODO if change login logic (e.g. password) will need to change
-        # if logging in, check if email is real
-        if len(request.form) == 1:
-            # if processing login fails, redirect to login (1 field -- email)
-            if not process_login(request.form["email"]):
-                return jsonify({"msg":"Email not found"}), 400, {'ContentType':'application/json'}
-        # otherwise, signing up (2 fields -- email and uname)
-        elif len(request.form) == 2:
-            # if processing signup fails, redirect to login
-            if not process_signup(request.form["email"], request.form["uname"]):
-                return jsonify({"msg":"Email or username already taken."}), 400, {'ContentType':'application/json'}
+    return render_template("login_bs.html")
 
-        return jsonify({"redirect":"/"}), 200, {'ContentType':'application/json'}
+@app.route('/login_submit', methods=["POST"])
+def login_submit():
+    # TODO if change login logic (e.g. password) will need to change
+    # if logging in, check if email is real
+
+    if not process_login(request.form["email"], request.form["password"]):
+        return jsonify({"msg":"Invalid sign in. Confirm email and password"}), 400, {'ContentType':'application/json'}
+
+    return jsonify({"redirect":"/"}), 200, {'ContentType':'application/json'}
+
+@app.route('/signup_submit', methods=["POST"])
+def signup_submit():
+    # if processing signup fails, redirect to login
+    if not process_signup(request.form["email"], request.form["uname"], request.form["password"]):
+        return jsonify({"msg":"Email or username already taken."}), 400, {'ContentType':'application/json'}
+
+    return jsonify({"redirect":"/"}), 200, {'ContentType':'application/json'}
+
 
 """
 Survey Logic
@@ -454,10 +478,11 @@ def store_response(form, u, qtype, qnum):
 def home():
     u = Users.query.filter_by(email=session["user"]["email"]).first()
     # redirect user wherever they need to go
+
     if u.status == "survey":
-        return get_question(u.code.code, u.curq)
+        return render_template("question_resume.html", json=get_question(u.code.code, u.curq))
     elif u.status == "chatroom":
-        redirect(f'/chatroom/{u.chatroomid}')
+        return redirect(f'/chatroom/{u.chatroomid}')
 
     return render_template('index.html', popup='popup.html')
 
@@ -491,11 +516,13 @@ def home_form():
             qname = list(form.keys())[0]
             print(request.form.getlist(qname))
             form[qname] = request.form.getlist(qname)
+        print(f"storing response {u.curq}")
         store_response(form, u, qtype, u.curq)
 
         # update user
         u.curq += 1
         db.session.commit()
+
         return get_question(u.code.code, u.curq)
 
     return jsonify({"message":"Invalid submission - no form data"}), 401, {'ContentType':'application/json'}
@@ -527,6 +554,9 @@ def get_question(code, qnum):
         #return jsonify({"redirect":f"/waiting_room/{uid}"}), 200, {'ContentType':'application/json'}
 
     # otherwise, determine if is last question
+    print(len(c.questions))
+    print(c.questions)
+    print("_________THIS")
     if len(c.questions) == qnum:
         submit = "Finish!"
     else:
@@ -551,7 +581,7 @@ def get_question(code, qnum):
         qd["opts"] = q.options
 
     return jsonify({"question":q.question, "type":qt, "submit":submit,
-            "rendered_form": render_template("question.html",**qd)}),\
+            "rendered_form": render_template("question_bs.html",**qd)}),\
                 200, {'ContentType':'application/json'}
 
 """
@@ -657,6 +687,7 @@ def handle_msg_sent(json, methods=['GET', 'POST']):
     # get user
     user = Users.query.filter_by(id=json["uid"]).first()
     user.msg_count += 1 # increment user message count
+    db.session.commit()
 
     # store message
     add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=msg, sendtime=dt.now()))
@@ -687,8 +718,8 @@ def handle_msg_sent(json, methods=['GET', 'POST']):
     TODO what should the limit be?
     """
     if user.msg_count > MSG_LIMIT:
-        set_user_status(user, "postsurvey")
-        redirect('/postsurvey')
+        user.status="postsurvey"
+        return redirect('/postsurvey')
 
     # send response to that chatroom
     socketio.emit(f'response_{json["cid"]}', json, callback=messageReceived)
@@ -701,7 +732,7 @@ Admin panel
 def admin():
     tables = {"users":Users, "chatrooms":Chatrooms, "codes":Codes}
     for name, table in tables.items():
-        tables[name] = table.query.limit(3).all()
+        tables[name] = table.query.all()
     return render_template("data.html", data=tables)
 
 if __name__ == '__main__':

@@ -19,24 +19,21 @@
     <link href="{{url_for('static', filename='css/h-custom.css')}}" rel="stylesheet">
 <body>
 
-    <div class="container vh-100 d-flex">
 
-        <div class="row d-flex w-100 align-items-center justify-content-center">
-            <div class="col-md-6 col-sm-10 ">
-                <form class="ajaxform" data-url="/ajax_form">
-                    <h2 class="question pb-3">Enter your survey code below:</h2>
+    <div class="container vh-100 d-flex align-items-center justify-content-center">
+        <div class="col-md-6 col-sm-10 ">
+            <form class="ajaxform" data-url="/ajax_form">
+                <h2 class="question pb-3">{{json["question"]}}</h2>
 
-                    <div class="form-outline" id="single_input">
-                      <input type="text" name="code" id="input_form" class="form-control border-bottom" />
-                      <label class="form-label" for="input_form">Enter your survey code</label>
-                    </div>
+                <div class="form-outline" id="single_input">
+                  {{json["rendered_form"]}}
+                </div>
 
-                    <div class="text-center text-lg-start mt-4 pt-2">
-                      <button type="submit" class="btn btn-primary btn-lg"
-                        style="padding-left: 2.5rem; padding-right: 2.5rem;">Begin Survey</button>
-                    </div>
-                </form>
-            </div>
+                <div class="text-center text-lg-start mt-4 pt-2">
+                  <button type="submit" class="btn btn-primary btn-lg"
+                    style="padding-left: 2.5rem; padding-right: 2.5rem;">{{json["submit"]}}</button>
+                </div>
+            </form>
         </div>
 
     </div>

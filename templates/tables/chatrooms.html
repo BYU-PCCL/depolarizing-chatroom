@@ -6,12 +6,12 @@
     <th>Members</th>
     <th>Chat log</th>
   </tr>
-  <tr>
   {% for row in data['chatrooms'] %}
+  <tr>
     <td>{{row.code}}</td>
     <td>{{row.prompt}}</td>
     <td>{{row.users}}</td>
     <td>{{row.messages}}</td>
-  {%endfor%}
   </tr>
+  {%endfor%}
 </table>
