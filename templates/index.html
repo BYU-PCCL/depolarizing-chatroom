@@ -19,10 +19,11 @@
     <link href="{{url_for('static', filename='css/h-custom.css')}}" rel="stylesheet">
 <body>
 
-    <div class="container-fluid vh-100 d-flex">
+    <section class="vh-100">
+    <div class="container-fluid">
 
-        <div class="row d-flex w-100 align-items-center justify-content-center">
-            <div class="col-md-8 col-sm-10 ">
+        <div class="row d-flex align-items-center justify-content-center">
+            <div class="col-md-10 col-sm-10 col-lg-8 ">
                 <form class="ajaxform" data-url="/ajax_form">
                     <h2 class="question pb-3">Enter your survey code below:</h2>
 
@@ -43,7 +44,7 @@
         </div>
 
     </div>
-
+    </section>
     <!-- error modal -->
     <div id="errorModal" class="modal" tabindex="-1" role="dialog">
       <div class="modal-dialog" role="document">
