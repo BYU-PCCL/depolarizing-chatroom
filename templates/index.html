@@ -19,32 +19,39 @@
     <link href="{{url_for('static', filename='css/h-custom.css')}}" rel="stylesheet">
 <body>
 
-<section class="vh-100">
-    <div class="container-fluid">
+    <section class="vh-100">
+      <div class="container-fluid h-custom">
+        <div class="row d-flex justify-content-center align-items-center h-100">
 
-        <div class="row d-flex align-items-center justify-content-center">
-            <div class="col-md-10 col-lg-8 ">
-                <form class="ajaxform" data-url="/ajax_form">
-                    <h2 class="question pb-3">Enter your survey code below:</h2>
+          <div class="col-md-8 col-lg-6 col-xl-4 offset-xl-1">
+             <h2 class="question pb-3">Enter your survey code below:</h2>
 
-                    <div class="form-outline" id="single_input">
-                      <input type="text" name="code" id="input_form" class="form-control form-control-lg" />
-                      <label class="form-label" for="input_form">Enter your survey code</label>
-                    </div>
+            <form class="ajaxform" data-url="/ajax_form">
+              <div class="form-outline mb-4" id="single_input">
+                <input type="text" name="code" id="input_form" class="form-control form-control-lg" />
+                <label class="form-label" for="input_form">Enter your survey code</label>
+              </div>
 
-                    <div class="text-center text-lg-start mt-4 pt-2">
-                      <button type="submit" class="btn btn-primary btn-lg"
-                        style="padding-left: 2.5rem; padding-right: 2.5rem;">Begin Survey</button>
-                    </div>
-                    {% if is_post %}
-                    <input type="hidden" name="is_post" value="true">
-                    {% endif %}
-                </form>
-            </div>
+              <div class="text-center text-lg-start mt-4 pt-2">
+                <button type="submit" class="btn btn-primary btn-lg"
+                  style="padding-left: 2.5rem; padding-right: 2.5rem;">Begin Survey</button>
+              </div>
+              {% if is_post %}
+              <input type="hidden" name="is_post" value="true">
+              {% endif %}
+
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex flex-column flex-md-row text-center text-md-start justify-content-between py-4 px-4 px-xl-5 bg-primary">
+        <!-- Copyright -->
+        <div class="text-white mb-3 mb-md-0">
+          Copyright © 2020. All rights reserved.
         </div>
 
-    </div>
-</section>
+      </div>
+    </section>
 
     <!-- error modal -->
     <div id="errorModal" class="modal" tabindex="-1" role="dialog">

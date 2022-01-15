@@ -1,52 +1,69 @@
+<!doctype html>
+
+<html lang="en">
 <head>
-    <!---
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/stylesheet.css') }}">
--->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!--
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@200;400;700&display=swap" rel="stylesheet">
-    -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Log in</title>
+    <meta name="description" content="A simple HTML5 Template for new projects.">
+    <meta name="author" content="SitePoint">
+
+    <meta property="og:title" content="A Basic HTML5 Template">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.sitepoint.com/a-basic-html5-template/">
+    <meta property="og:description" content="Login page">
+    <meta property="og:image" content="image.png">
+
+    <link rel="icon" href="/favicon.ico">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
     <!--- CSS -->
     <link href="{{url_for('static', filename='css/mdb.min.css')}}" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-    <link href="{{url_for('static', filename='css/login.css')}}" rel="stylesheet">
+    <link href="{{url_for('static', filename='css/h-custom.css')}}" rel="stylesheet">
 
     <!-- JS -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
-    <link href="{{url_for('static', filename='css/h-custom.css')}}" rel="stylesheet">
 <body>
 
-
     <section class="vh-100">
-    <div class="container-fluid">
+      <div class="container-fluid h-custom">
+        <div class="row d-flex justify-content-center align-items-center h-100">
 
-        <div class="row d-flex align-items-center justify-content-center">
-            <div class="col-md-10 col-lg-8 ">
+          <div class="col-md-8 col-lg-6 col-xl-4 offset-xl-1">
+             <h2 class="question pb-3">{{json["question"]}}</h2>
+
             <form class="ajaxform" data-url="/ajax_form">
+              <!-- Email input -->
+              <div class="form-outline mb-4" id="single_input">
+                {{json["rendered_form"]|safe}}
+              </div>
 
-                <h2 class="question pb-3">{{json["question"]}}</h2>
+              <input type="hidden" name="qtype" value="{{json['type']}}">
+              {% if json["is_post"] %}
+              <input type="hidden" name="is_post" value="true">
+              {% endif %}
 
-                <div class="form-outline" id="single_input">
-                  {{json["rendered_form"]|safe}}
-                  <input type="hidden" name="qtype" value="{{json['type']}}">
-                  {% if json["is_post"] %}
-                  <input type="hidden" name="is_post" value="true">
-                  {% endif %}
-                </div>
+              <div class="text-center text-lg-start mt-4 pt-2">
+                <button type="submit" class="btn btn-primary btn-lg"
+                  style="padding-left: 2.5rem; padding-right: 2.5rem;">{{json["submit"]}}</button>
+              </div>
 
-                <div class="text-center text-lg-start mt-4 pt-2">
-                  <button type="submit" class="btn btn-primary btn-lg"
-                    style="padding-left: 2.5rem; padding-right: 2.5rem;">{{json["submit"]}}</button>
-                </div>
             </form>
-            </div>
-
+          </div>
         </div>
-    </div>
-</section>
+      </div>
+      <div class="d-flex flex-column flex-md-row text-center text-md-start justify-content-between py-4 px-4 px-xl-5 bg-primary">
+        <!-- Copyright -->
+        <div class="text-white mb-3 mb-md-0">
+          Copyright © 2020. All rights reserved.
+        </div>
+
+      </div>
+    </section>
 
     <!-- error modal -->
     <div id="errorModal" class="modal" tabindex="-1" role="dialog">
@@ -71,3 +88,4 @@
     <script src="{{ url_for('static', filename='js/forms.js') }}"></script>
     <script src="{{url_for('static', filename='js/mdb.min.js')}}"></script>
 </body>
+</html>
