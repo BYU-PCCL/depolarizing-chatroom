@@ -13,6 +13,7 @@ from flask_migrate import Migrate
 from secrets import choice
 from string import ascii_letters, digits
 from hashlib import sha256
+from sqlalchemy import desc
 
 #eventlet.monkey_patch()
 load_dotenv(path.join(path.dirname(__file__), '.env'))
@@ -77,6 +78,7 @@ class Users(db.Model):
     curq = db.Column(db.Integer, default=1)
     uname = db.Column(db.String(320))
     color = db.Column(db.String(7))
+    waiting = db.Column(db.DateTime)
     msg_count = db.Column(db.Integer, default=0)
     status = db.Column(db.String(20), default="code")
     #waiting = db.Column(db.DateTime)
@@ -258,7 +260,7 @@ def survey_builder():
                 #t.setDaemon(True)
                 #t.start()
                 #TODO if have waitlist, add stuff
-                #eventlet.spawn(waitlist_listener, code)
+                eventlet.spawn(waitlist_listener, code)
                 print("thread started")
             else:
                 qnum = len(c.questions) + 1
@@ -621,7 +623,6 @@ def eliza():
 """
 Waiting Room (with waiting room sockets)
 """
-"""
 # NO NEED FOR WAITING ROOM IF PEOPLE NOT CHATTING W EACH OTHER
 # unique waiting room for each user
 @app.route("/waiting_room/<uid>")
@@ -657,7 +658,7 @@ def waitlist_listener(code):
     while True:
         # if number of users in queue exceeds threshold, redirect threshold # users to same chatroom
         c = Codes.query.filter_by(code=code).first()
-        waiters = Users.query.filter(Users.code==c, Users.waiting!=None).all()
+        waiters = Users.query.filter(Users.code==c, Users.waiting!=None).order_by(desc(Users.waiting)).all()
         if len(waiters) >= THRESHOLD:
             print("people waiting:")
             print(waiters)
@@ -676,7 +677,7 @@ def waitlist_listener(code):
                 print(f"Redirecting {u.id} to /chatroom/{chatroom.id}")
                 socketio.emit(f"waiting_room_redirect_{u.id}", {'redirect':f'/chatroom/{chatroom.id}'})
             db.session.commit()
-"""
+
 
 """
 Chatroom sockets
