@@ -4,6 +4,11 @@ function display_popup(msg){
     $('.popup').show();
 }
 
+function set_progress_bar(qn, qt){
+    $('.progressbar').width(`{qn/qt*100}%`);
+    $('.progressbar').html(`{qn/qt*100}%`);
+}
+
 $(document).ready(function(){
     // close popup
     $('.popup_close').click(function(e){
@@ -69,6 +74,9 @@ $(document).ready(function(){
                 }
                 input.attr("type", "hidden");
                 input.attr("name", "qtype").val(data["type"]);
+
+                // set progress bar
+                set_progress_bar(data["qnum"], data["qtot"]);
             }
 
           }

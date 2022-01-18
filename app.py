@@ -504,7 +504,7 @@ def home_form():
     # get user
     u = Users.query.filter_by(email=session["user"]["email"]).first()
     # if code in form, validate and begin survey
-    print(request.form)
+
     if "code" in request.form:
         code = request.form["code"]
         # get code response
