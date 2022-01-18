@@ -187,7 +187,7 @@ function display_choices(og, trans){
 }
 
 // connect socket
-var socket = io.connect();
+var socket = io.connect('http://' + document.domain + ':' + location.port, {transports : ['websocket']});
 
 socket.on( 'connect', function() {
 
