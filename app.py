@@ -68,6 +68,22 @@ class Chatrooms(db.Model):
     def __repr__(self):
         return f"{self.code}:{self.prompt}, {self.users}"
 
+class Messages(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    chatroomid = db.Column(db.Integer, db.ForeignKey('chatrooms.id'))
+    senderid = db.Column(db.Integer, db.ForeignKey('users.id'))
+    msg = db.Column(db.Text, nullable=False)
+    sendtime = db.Column(db.DateTime, nullable=False)
+    bot = db.Column(db.Boolean, default=False)
+    translation = db.Column(db.Text)
+    trans_accepted = db.Column(db.Boolean)
+    # relationship (many-to-one with chatroom, many-to-one with user)
+    chatroom = db.relationship('Chatrooms', back_populates='messages')
+    user = db.relationship('Users', back_populates='messages')
+
+    def __repr__(self):
+        return f"{self.user}@{self.chatroom}: {self.msg}\n{self.translation}\n{self.trans_accepted}"
+
 class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     chatroomid = db.Column(db.Integer, db.ForeignKey('chatrooms.id'))
@@ -84,26 +100,12 @@ class Users(db.Model):
     #waiting = db.Column(db.DateTime)
     # relationship (many-to-one with chatrooms, one-to-many with messages, many-to-one with codes, one-to-many with responses)
     chatroom = db.relationship('Chatrooms', back_populates='users')
-    messages = db.relationship('Messages', back_populates='user')
+    messages = db.relationship('Messages', back_populates='user',order_by=Messages.sendtime.desc)
     code = db.relationship('Codes', back_populates='users')
     responses = db.relationship('Responses', back_populates='user')
 
     def __repr__(self):
         return f"{self.uname}:{self.code}"
-
-class Messages(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    chatroomid = db.Column(db.Integer, db.ForeignKey('chatrooms.id'))
-    senderid = db.Column(db.Integer, db.ForeignKey('users.id'))
-    msg = db.Column(db.Text, nullable=False)
-    sendtime = db.Column(db.DateTime, nullable=False)
-    bot = db.Column(db.Boolean, default=False)
-    # relationship (many-to-one with chatroom, many-to-one with user)
-    chatroom = db.relationship('Chatrooms', back_populates='messages')
-    user = db.relationship('Users', back_populates='messages')
-
-    def __repr__(self):
-        return f"{self.user}@{self.chatroom}: {self.msg}"
 
 class Responses(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -260,7 +262,7 @@ def survey_builder():
                 #t.setDaemon(True)
                 #t.start()
                 #TODO if have waitlist, add stuff
-                eventlet.spawn(waitlist_listener, code)
+                #eventlet.spawn(waitlist_listener, code)
                 print("thread started")
             else:
                 qnum = len(c.questions) + 1
@@ -490,6 +492,8 @@ def home():
         return render_template("question_resume.html", json=get_question(u.code.code, u.curq, False))
     elif u.status == "chatroom":
         return redirect(f'/chatroom/{u.chatroomid}')
+    elif u.status == "waiting":
+        return redirect(f'/waiting_room/{u.id}')
     elif u.status == "postsurvey":
         return render_template("question_resume.html", json=get_question(u.code.code, u.curq, True), is_post=True)
 
@@ -551,7 +555,7 @@ def get_question(code, qnum, is_post):
     c = Codes.query.filter_by(code=code).first()
     q = Questions.query.filter_by(number=qnum, codeid=c.id, is_post=is_post).first()
 
-    # if no question, either redirect to finish or chatroom
+    # if no question, either redirect to finish or waiting room
     if q == None:
         # get user
         u = Users.query.filter_by(email=session["user"]["email"]).first()
@@ -559,16 +563,12 @@ def get_question(code, qnum, is_post):
             u.status = "finished"
             db.session.commit()
             return {"redirect":"/thankyou"}
-        # make chatroom for user
-        # TODO this will move to waiting room listener if we revert to that, that's why users is one-to-many
-        cr = Chatrooms(codeid=c.id, users=[u], prompt="Talk with GPT-3")
-        add_to_db(cr)
+
         # update user
-        u.status = "chatroom"
-        u.chatroomid = cr.id
+        u.status = "waiting"
         db.session.commit()
 
-        return {"redirect":f"/chatroom/{cr.id}"}
+        return {"redirect":f"/waiting_room/{u.id}"}
         #return jsonify({"redirect":f"/waiting_room/{uid}"}), 200, {'ContentType':'application/json'}
 
     # otherwise, determine if is last question
@@ -603,7 +603,6 @@ CHATROOM
 """
 @app.route('/chatroom/<cid>', methods=['GET'])
 @requires_acc
-@is_admin
 def chatroom(cid):
     # get user information from db
     user = Users.query.filter_by(email=session["user"]["email"]).first()
@@ -652,32 +651,34 @@ def handle_waiting_room(json, methods=['GET', 'POST']):
 
     json["num_queue"] = Users.query.filter(Users.codeid==u.code.id, Users.waiting!=None).count()
 
+    # update limit
     socketio.emit('joined_waiting_room', json, callback=messageReceived)
 
-def waitlist_listener(code):
-    while True:
-        # if number of users in queue exceeds threshold, redirect threshold # users to same chatroom
-        c = Codes.query.filter_by(code=code).first()
-        waiters = Users.query.filter(Users.code==c, Users.waiting!=None).order_by(desc(Users.waiting)).all()
-        if len(waiters) >= THRESHOLD:
-            print("people waiting:")
-            print(waiters)
-            us = waiters[:THRESHOLD]
-            # create chatroom
-            chatroom = Chatrooms(codeid=c.id, prompt="This is a sample prompt for now.")
-            db.session.add(chatroom)
-            db.session.commit()
-            # redirect each user
-            for u in us:
-                # add relationships
-                chatroom.users.append(u)
-                u.chatroomid = chatroom.id
-                u.waiting = None
+    # everytime someone joins, check and see if should redistribute people to chatroom
+    print("checking")
+    c = Codes.query.filter_by(code=u.code.code).first()
+    waiters = Users.query.filter(Users.codeid==c.id, Users.waiting!=None).order_by(desc(Users.waiting)).all()
 
-                print(f"Redirecting {u.id} to /chatroom/{chatroom.id}")
-                socketio.emit(f"waiting_room_redirect_{u.id}", {'redirect':f'/chatroom/{chatroom.id}'})
-            db.session.commit()
+    if len(waiters) >= THRESHOLD:
+        print("people waiting:")
+        print(waiters)
+        us = waiters[:THRESHOLD]
+        print(us)
+        # create chatroom
+        chatroom = Chatrooms(codeid=c.id, prompt="This is a sample prompt for now.")
+        db.session.add(chatroom)
+        db.session.commit()
+        # redirect each user
+        for u in us:
+            # add relationships
+            chatroom.users.append(u)
+            u.chatroomid = chatroom.id
+            u.waiting = None
+            u.status = "chatroom"
 
+            print(f"Redirecting {u.id} to /chatroom/{chatroom.id}")
+            socketio.emit(f"waiting_room_redirect_{u.id}", {'redirect':f'/chatroom/{chatroom.id}'})
+        db.session.commit()
 
 """
 Chatroom sockets
@@ -689,6 +690,38 @@ def messageReceived(methods=['GET', 'POST']):
 def handle_join_chat(json, methods=['GET', 'POST']):
     socketio.emit('joined_chatroom', json, callback=messageReceived)
 
+@socketio.on('new_msg')
+def handle_new_msg(json, methods=['GET', 'POST']):
+    msg = json["msg"]
+
+    # get user
+    user = Users.query.filter_by(id=json["uid"]).first()
+
+    # get most recent message from user
+    user.messages[0].trans_accepted = bool(json["is_bot"])
+
+    # update message count
+    user.msg_count += 1 # increment user message count
+    db.session.commit()
+    json["ct"] = user.msg_count
+    print(user.messages[0])
+
+    """
+    Check if user has exceeded chat limit, if so redirect to survey
+    TODO what should the limit be, especially for two people
+    """
+    # get chatroom, send msg
+    chatroom = Chatrooms.query.filter_by(id=json["cid"]).first()
+
+    if user.msg_count >= MSG_LIMIT:
+        # redirect each user
+        for u in chatroom.users:
+            u.status="postsurvey"
+        db.session.commit()
+        json["redirect"] = "/"
+
+    socketio.emit(f"new_msg_{json['cid']}", json, callback=messageReceived)
+
 @socketio.on('post')
 def handle_msg_sent(json, methods=['GET', 'POST']):
     # store message in database
@@ -699,12 +732,6 @@ def handle_msg_sent(json, methods=['GET', 'POST']):
 
     # get user
     user = Users.query.filter_by(id=json["uid"]).first()
-    user.msg_count += 1 # increment user message count
-    db.session.commit()
-
-    # store message
-    add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=msg, sendtime=dt.now()))
-
 
     """
     this is where you'd pass the message into gpt-3
@@ -716,29 +743,22 @@ def handle_msg_sent(json, methods=['GET', 'POST']):
 
     and then in chatroom.html, simply add that response to the chatbox (div.chatrwapper)
     """
-    json["response"] = "GPT response"
-    print("gpt response")
+    gpt_resp = "GPT response"
+
+    # store message
+    add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=msg, sendtime=dt.now(), translation=gpt_resp))
+
+    json["response"] = gpt_resp
 
     # store GPT response in DB
     """
     Store message sent by GPT as bot response in DB (bot=True)
     """
-    add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=json["response"], sendtime=dt.now(), bot=True))
+    #add_to_db(Messages(chatroomid=chatroom.id, senderid=user.id, msg=json["response"], sendtime=dt.now(), bot=True))
     json["time"] = format_dt(dt.now())
-    json["ct"] = user.msg_count
-    print("gpt message added")
-
-    """
-    Check if user has exceeded chat limit, if so redirect to survey
-    TODO what should the limit be?
-    """
-    if user.msg_count > MSG_LIMIT:
-        user.status="postsurvey"
-        db.session.commit()
-        json["redirect"] = "/"
 
     # send response to that chatroom
-    socketio.emit(f'response_{json["cid"]}', json, callback=messageReceived)
+    socketio.emit(f'response_{json["cid"]}_{json["uid"]}', json, callback=messageReceived)
 
 """
 Admin panel

@@ -66,22 +66,124 @@
 
       </div>
     </section>
+
+<!-- after send, choose between original and gpt message -->
+<div class="modal" id="msg-choice"
+    tabindex="-1"
+    aria-labelledby="exampleModalLabel"
+    aria-hidden="true"
+    data-mdb-backdrop="static"
+    data-mdb-keyboard="false"
+    >
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLabel">Confirm message send</h5>
+      </div>
+      <div class="modal-body">
+              <p class="border-bottom pb-3 text-secondary" id="original-msg"></p>
+              <p class=" text-primary" id="translated-msg"></p>
+      </div>
+      <div class="modal-footer justify-content-between">
+          <button type="button" class="btn btn-secondary" id="original-btn">Send original message</button>
+          <button type="button" class="btn btn-primary" id="new-btn">Send new message</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- confirm modal at start -->
+<div
+  class="modal"
+  id="confirm-modal"
+  data-mdb-backdrop="static"
+  data-mdb-keyboard="false"
+  tabindex="-1"
+  aria-labelledby="staticBackdropLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="staticBackdropLabel">Chat terms</h5>
+      </div>
+      <div class="modal-body">
+          ...
+      </div>
+      <div class="modal-footer justify-content-between">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="confirm-check" />
+            <label class="form-check-label" for="confirm-check">I have read and understand the terms of the chat</label>
+          </div>
+        <button type="button" class="btn btn-primary" id="confirm-btn" disabled>Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
   <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
   <script type="text/javascript">
 // scroll to bottom of chats
 $("#chatbox").scrollTop($("#chatbox").prop("scrollHeight"));
+// variables for choosing message
+var original = "";
+var translation = "";
+
+/** confirm modal **/
+$('#confirm-btn').click(function() {
+    console.log('click');
+    $('#confirm-modal').modal('toggle');
+});
+
+$('#confirm-check').change(function(){
+    if(this.checked){
+        $('#confirm-btn').prop('disabled', false)
+    } else {
+        $('#confirm-btn').prop('disabled', true)
+    }
+})
+
+/** message send choice **/
+$("#original-btn").click(function(){
+    send_to_server(original, false);
+    $("#msg-choice").modal("toggle");
+})
+
+$("#new-btn").click(function(){
+    send_to_server(translation, true);
+    $("#msg-choice").modal("toggle");
+})
+
+function send_to_server(msg, is_bot){
+    socket.emit('new_msg', {
+        uid : {{uid}},
+        msg : msg,
+        is_bot : is_bot,
+        cid : {{cid}}
+    })
+}
 
 // function to add chaat
-function addchat(msg, time, bot){
+function addchat(msg, sent, bot){
     let ins = `
-    <div class="d-flex flex-row justify-content-${bot ? "start" : "end"}">
+    <div class="d-flex flex-row justify-content-${sent ? "end" : "start"}">
       <div>
-        <p class="small p-2 ms-3 mb-1 rounded-3 ${!(bot) ? "bg-primary" : "bg-light"} ${ !(bot) ? "text-light":""}" >${msg}</p>
-        <p class="small ms-3 mb-3 rounded-3 text-muted float-end">${time}</p>
+        <p class="small p-2 ms-3 mb-1 rounded-3 ${sent ? "bg-primary" : "bg-light"} ${ sent ? "text-light":""}" >${msg}</p>
+        <p class="small ms-3 mb-3 rounded-3 float-end text-${bot ? "success" : "secondary"}">${bot ? "New message by GPT-3" : "Original message from sender"}</p>
       </div>
     </div>
     `;
     $('#chatbox').append(ins);
+}
+
+function display_choices(og, trans){
+    $("#original-msg").html(og);
+    $("#translated-msg").html(trans);
+    $("#msg-choice").modal("toggle");
+    // set variables for send to server
+    original = og;
+    translation = trans;
 }
 
 // connect socket
@@ -95,7 +197,6 @@ socket.on( 'connect', function() {
     if (user_input == ""){
       return;
     };
-    addchat(user_input, "Now", false);
     $("#chatbox").scrollTop($("#chatbox").prop("scrollHeight"));
 
     socket.emit( 'post', {
@@ -117,25 +218,25 @@ socket.on( 'connect', function() {
   } );
 });
 
-socket.on( 'response_{{cid}}', function( msg ) {
+socket.on( 'response_{{cid}}_{{uid}}', function( msg ) {
 
-  if ("redirect" in msg){
-      window.location.replace(msg["redirect"]);
-  }
-  addchat(msg["response"], msg["time"], true);
-  console.log(msg);
-  $(".msg-count").html(msg["ct"]);
-  $("#chatbox").scrollTop($("#chatbox").prop("scrollHeight"));
-  /*
-  $( 'div.chatwrapper' ).append( '<div class="msg '+cls+'"><h4 class="username">'+msg.uname+'</h4><p class="message_body">'+msg.body+'</p></div>' )
-  var chatbox = document.getElementById('chatwrapper')
-  chatbox.scrollTop = chatbox.scrollHeight
-  console.log(chatbox.scrollHeight)
-  */
+  display_choices(msg["body"], msg["response"]);
+});
+
+socket.on('new_msg_{{cid}}', function( msg ){
+    if ("redirect" in msg){
+        window.location.replace(msg["redirect"]);
+    }
+    addchat(msg["msg"], msg["uid"] == {{uid}}, msg["is_bot"]);
+    $(".msg-count").html(msg["ct"]);
+    $("#chatbox").scrollTop($("#chatbox").prop("scrollHeight"));
 })
 
+$(document).ready(function(){
+    $('#confirm-modal').modal('toggle');
+});
   </script>
-  <script src="{{url_for('static', filename='js/mdb.min.js')}}"></script>
+ <script src="{{url_for('static', filename='js/mdb.min.js')}}"></script>
 
 </body>
 </html>

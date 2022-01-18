@@ -1,44 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/stylesheet.css') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com"> 
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> 
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;500&display=swap" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <title>Waiting room</title>
+
+    <link href="{{url_for('static', filename='css/h-custom.css')}}" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.3/socket.io.js"></script>
+    {% include "boilerplate_bs.html" %}
 </head>
 <body>
-    <div class="flexwrap purple">
-      <h3 class="subheading">In the waiting room: <span id="lq">{{num_queue}}</span>/{{threshold}}</h3>
-      <h4 class="subsubheading"><i>Waiting for redirect<span id="ellipses"></span></i></h3>
-      <hr class="divider">
-      <h2 class="question">Welcome to the waiting room! A few things:</h2>
-      <ol class="guidelines">
-        <li>We're working as fast as we can to pair you up with your group!</li>
-        <li>Feel free to wait around, but we'll also email you when you've been added to a chat.</li>
-        <li>You <strong>must</strong> participate in the chat to fulfill your survey duties.</li>
-      </ol>
-      <h3 class="subheading">We appreciate your patience :)</h3>
+    <section class="vh-100">
+      <div class="container h-custom">
+        <div class="row d-flex justify-content-center align-items-center h-100">
+            <div class="col-md-12 col-lg-12 col-sm-10">
 
-    </div>
-    
+                <h1 class="border-bottom p-3">Thanks for your patience while we pair you with your group!</h1>
+                <h3 >In the waiting room: <span id="lq text-primary">{{num_queue}}</span>/{{threshold}}</h3>
+                <h3>Remember, it's <span class="text-primary">required</span> to complete your chat and post-survey for payment</h3>
+            </div>
+        </div>
+      </div>
+      <div class="d-flex flex-column flex-md-row text-center text-md-start justify-content-between py-4 px-4 px-xl-5 bg-primary">
+        <!-- Copyright -->
+        <div class="text-white mb-3 mb-md-0">
+          Copyright © 2020. All rights reserved.
+        </div>
+
+      </div>
+
+    </section>
+
     <script type="text/javascript">
     var count = 0;
     setInterval(function(){
       count++;
       $("#ellipses").text(Array(count % 4).join('.'));
     }, 1000);
-    
+
         // connect socket
     var socket = io.connect('http://' + document.domain + ':' + location.port);
-    
+
     socket.on( 'connect', function() {
       socket.emit( 'join_waiting_room', {
         uid: {{uid}}
       })
     });
-    
+
     socket.on('joined_waiting_room', function(json){
       $('#lq').text(json['num_queue']);
     })
@@ -50,6 +56,6 @@
     socket.on('waiting_room_redirect_{{uid}}', function(json){
       window.location.href = json['redirect'];
     })
-    
-    </script>    
+
+    </script>
 </body>
