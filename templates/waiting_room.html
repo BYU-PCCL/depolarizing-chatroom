@@ -30,32 +30,30 @@
     </section>
 
     <script type="text/javascript">
-    var count = 0;
-    setInterval(function(){
-      count++;
-      $("#ellipses").text(Array(count % 4).join('.'));
-    }, 1000);
 
+    $(document).ready(function(){
         // connect socket
-    var socket = io.connect('http://' + document.domain + ':' + location.port, {transports : ['websocket']});
+        var socket = io.connect('http://' + document.domain + ':' + location.port, {transports : ['websocket']});
 
-    socket.on( 'connect', function() {
-      socket.emit( 'join_waiting_room', {
-        uid: {{uid}}
-      })
+        socket.on( 'connect', function() {
+          socket.emit( 'join_waiting_room', {
+            uid: {{uid}}
+          })
+        });
+
+        socket.on('joined_waiting_room', function(json){
+          $('#lq').text(json['num_queue']);
+        })
+
+        socket.on('waiting_room_update', function(json){
+          $('#lq').text(json['num_queue']);
+        })
+
+        socket.on('waiting_room_redirect_{{uid}}', function(json){
+          window.location.href = json['redirect'];
+        })
+    
     });
-
-    socket.on('joined_waiting_room', function(json){
-      $('#lq').text(json['num_queue']);
-    })
-
-    socket.on('waiting_room_update', function(json){
-      $('#lq').text(json['num_queue']);
-    })
-
-    socket.on('waiting_room_redirect_{{uid}}', function(json){
-      window.location.href = json['redirect'];
-    })
 
     </script>
 </body>
