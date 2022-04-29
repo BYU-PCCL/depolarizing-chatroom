@@ -2,14 +2,12 @@ import random
 from datetime import datetime as dt
 from functools import wraps
 from hashlib import sha256
-from os import environ, getcwd, path, remove
+from os import environ, path, remove
 from secrets import choice
 from string import ascii_letters, digits
 
-import eventlet
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, render_template, request, session
-from flask.helpers import url_for
 from flask_migrate import Migrate
 from flask_socketio import SocketIO
 from flask_sqlalchemy import SQLAlchemy
