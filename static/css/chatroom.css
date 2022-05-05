@@ -1,11 +1,17 @@
-#chat3 .form-control {
-  border-color: transparent;
+body {
+  background: #f8f8f8;
+  font-weight: normal;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
-#chat3 .form-control:focus  {
-  border-color: transparent;
-  box-shadow: inset 0px 0px 0px 1px transparent;
-}
+/*#chat3 .form-control {*/
+/*  border-color: transparent;*/
+/*}*/
+
+/*#chat3 .form-control:focus  {*/
+/*  border-color: transparent;*/
+/*  box-shadow: inset 0px 0px 0px 1px transparent;*/
+/*}*/
 
 .badge-dot {
   border-radius: 50%;
@@ -13,4 +19,50 @@
   width: 10px;
   margin-left: 2.9rem;
   margin-top: -.75rem;
+}
+
+/*.send-button {*/
+/*  padding-top: 0;*/
+/*  padding-bottom: 0;*/
+/*  line-height: 0;*/
+/*  height: 30px;*/
+/*  width: 60px;*/
+/*}*/
+
+.send-option-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
+}
+
+.send-option-wrapper > p {
+  margin: 0;
+}
+
+.send-option-wrapper i {
+  font-size: 1.15rem;
+}
+
+#loaded-rephrasings-container {
+  height: 0;
+  overflow: hidden;
+  transition: height 0.2s ease-out, opacity 0.2s ease-out;
+  opacity: 0;
+}
+
+#rephrasings-loader-container {
+  width: 100%;
+  transition: opacity 0.2s ease-in;
+}
+
+#rephrasings-container {
+  /* Stack children */
+  height: 0;
+  position: relative;
+  transition: height 0.2s ease-out;
+}
+
+#rephrasings-container > * {
+  position: absolute;
 }

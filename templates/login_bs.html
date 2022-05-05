@@ -5,7 +5,7 @@
 
   <title>Log in</title>
 
-  <link href="{{url_for('static', filename='css/h-custom.css')}}" rel="stylesheet">
+  <link href="{{url_for('static', path='css/h-custom.css')}}" rel="stylesheet">
   {% include "boilerplate_bs.html" %}
 </head>
 
@@ -14,11 +14,11 @@
       <div class="container-fluid h-custom">
         <div class="row d-flex justify-content-center align-items-center h-100">
           <div class="col-md-9 col-lg-6 col-xl-5 order-sm-2 order-md-1">
-            <img src="{{url_for('static', filename='img/polarization_lab_logo.png')}}" class="img-fluid"
+            <img src="{{url_for('static', path='img/polarization_lab_logo.png')}}" class="img-fluid"
               alt="Sample image">
           </div>
           <div class="col-md-8 col-lg-6 col-xl-4 offset-xl-1 order-sm-1 order-md-2">
-            <form class="ajaxform" data-url="login_submit" id="login-form">
+            <form class="ajaxform" data-url="login" id="login-form">
               <!-- Email input -->
               <div class="form-outline mb-4">
                 <input type="email" name="email" id="email-input" class="form-control form-control-lg"
@@ -67,8 +67,8 @@
     <!-- Invalid modal -->
     {%include "error_modal.html" %}
 
-    <script src="{{url_for('static', filename='js/forms.js')}}"></script>
-    <script src="{{url_for('static', filename='js/mdb.min.js')}}"></script>
+    <script src="{{url_for('static', path='js/forms.js')}}"></script>
+    <script src="{{url_for('static', path='js/mdb.min.js')}}"></script>
 </body>
 
 </html>

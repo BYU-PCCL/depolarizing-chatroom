@@ -11,7 +11,7 @@
         }
     </style>
     {% if code == None %}
-    <form action="/survey_builder" method="POST" id="begin">
+    <form action="/survey-builder" method="POST" id="begin">
         <span>
             <label for="code">Survey Code</label>
             <input id="code" name="code" required>
@@ -42,7 +42,7 @@
         <option value="slider">Slider</option>
     </select>
 
-    <form action="/survey_builder" method="POST" id="grid">
+    <form action="/survey-builder" method="POST" id="grid">
         <span>
             <label for="question">Question:</label>
             <input name="question" type="text" required>
@@ -75,7 +75,7 @@
         <input type="submit">
     </form>
 
-    <form action="/survey_builder" method="POST" id="radio" >
+    <form action="/survey-builder" method="POST" id="radio" >
         <span>
             <label for="question">Question:</label>
             <input name="question" type="text" required>
@@ -97,7 +97,7 @@
         <input type="submit">
     </form>
 
-    <form action="/survey_builder" method="POST" id="multiple">
+    <form action="/survey-builder" method="POST" id="multiple">
         <span>
             <label for="question">Question:</label>
             <input name="question" type="text" required>
@@ -119,7 +119,7 @@
         <input type="submit">
     </form>
 
-    <form action="/survey_builder" method="POST" id="slider">
+    <form action="/survey-builder" method="POST" id="slider">
         <span>
             <label for="question">Question:</label>
             <input name="question" type="text" required>
@@ -150,5 +150,5 @@
         <input type="submit">
     </form>
     {% endif %}
-    <script src="{{ url_for('static', filename='js/survey_builder.js') }}"></script>
+    <script src="{{ url_for('static', path='js/survey_builder.js') }}"></script>
 </body>

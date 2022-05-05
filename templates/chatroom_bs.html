@@ -2,241 +2,338 @@
 <html lang="en">
 <head>
     <title>Chatroom</title>
-    {%include "boilerplate_bs.html" %}
+    {% include "boilerplate_bs.html" %}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.3/socket.io.js"></script>
-    <link href="{{url_for('static', filename='css/chatroom.css')}}" rel="stylesheet">
+    <link href="{{ url_for('static', path='css/chatroom.css') }}" rel="stylesheet">
 </head>
 <body>
-    <section >
-      <div class="container py-5">
-        <div class="row">
-          <h1>{{prompt}}</h1>
-          <p> <span class="text-primary msg-count">{{msg_count}}</span> messages sent out of {{msg_limit}} required</p>
+<section>
+    <div class="container py-5">
+        <div class="mb-4">
+            <h1>{{ prompt }}</h1>
+            <p>Your political affiliation is <b>{{ affiliation }}</b>.</p>
+{#            <p><span class="text-primary msg-count">{{ message_count }}</span> messages sent out of {{ message_limit }}#}
+{#                required#}
+{#            </p>#}
+            <button class="mt-1 btn btn-primary" id="clear-chatroom"><i class="bi-arrow-clockwise"></i> Restart Chat</button>
         </div>
         <div class="row">
-          <div class="col-md-12">
-
-            <div class="card" id="chat3" style="border-radius: 15px;">
-              <div class="card-body">
-
-                <div class="row justify-content-center">
-
-                  <div class="col-md-8 col-lg-10 col-xl-12">
-
-                    <div class="pt-3 pe-3 overflow-auto" data-mdb-perfect-scrollbar="true" id=chatbox style="position: relative; height: 60vh">
-                      {% for msg in msgs %}
-                      <div class="d-flex flex-row justify-content-{{"start" if msg.bot else "end"}}">
-                        <div>
-                          <p class="medium p-2 ms-3 mb-1 rounded-3 {{"bg-primary" if not msg.bot else "bg-light"}} {{"text-light" if not msg.bot}}" >{{msg.msg}}</p>
-                          <p class="small ms-3 mb-3 rounded-3 text-muted float-end">{{msg.sendtime|format_dt}}</p>
+            <div class="col-md-12">
+                <div class="card" id="chat3">
+                    <div class="card-body">
+                        <div class="row justify-content-center">
+                                <div class="pt-3 pe-3 overflow-auto" data-mdb-perfect-scrollbar="true" id=chatbox
+                                     style="position: relative; height: 60vh">
+                                    {% for message in messages %}
+                                        <div class="d-flex flex-row justify-content-{{ "start" if message.bot else "end" }}">
+                                            <div>
+                                                <p class="medium p-2 ms-3 mb-1 rounded-3 {{ "bg-primary" if not message.bot else "bg-light" }} {{ "text-light" if not message.bot }}">{{ message.body }}</p>
+                                                <p class="small ms-3 mb-3 rounded-3 text-muted float-end">{{ message.send_time|format_dt }}</p>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="text-muted d-flex justify-content-start align-items-center pe-3 pt-3 mt-2 border-top">
+                                    <!--img src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-chat/ava6-bg.webp"
+                                         alt="avatar 3" style="width: 40px; height: 100%;"/-->
+                                    <form class="d-flex justify-content-around w-100 gap-3 align-items-center">
+                                        <div class="form-outline flex-fill">
+                                            <input id="messagebox"
+                                                   type="text"
+                                                   class="form-control form-control-lg"
+                                                   aria-label="Type a message"
+                                                   aria-describedby="send-btn"
+                                            />
+                                            <label for="messagebox" class="form-label">Type a message</label>
+                                        </div>
+                                        <button class="btn btn-primary btn-rounded"
+                                                type="submit" id="send-btn">
+                                            <i class="bi-send-fill" style="font-size: 1.15rem"></i>
+                                        </button>
+                                    </form>
+                                </div>
                         </div>
-                      </div>
-                      {% endfor %}
-
                     </div>
-
-                    <div class="text-muted d-flex justify-content-start align-items-center pe-3 pt-3 mt-2 border-top">
-                      <img src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-chat/ava6-bg.webp"
-                        alt="avatar 3" style="width: 40px; height: 100%;">
-
-                        <form class="d-flex justify-content-around w-100">
-                          <input id="messagebox"
-                            type="text"
-                            class="form-control form-control-lg border-bottom"
-                            placeholder="Type message"
-                            aria-label="Type message"
-                            aria-describedby="send-btn"
-                          />
-                          <button class="btn btn-outline-primary" style="border-radius:50%; border-top-left-radius: 0; border-bottom-left-radius:0;" type="submit" id="send-btn" data-mdb-ripple-color="dark">
-                            Send
-                          </button>
-                        </form>
-
-
-                    </div>
-
-                  </div>
                 </div>
-
-              </div>
             </div>
-
-          </div>
         </div>
-
-      </div>
-    </section>
+    </div>
+</section>
 
 <!-- after send, choose between original and gpt message -->
 <div class="modal" id="msg-choice"
-    tabindex="-1"
-    aria-labelledby="exampleModalLabel"
-    aria-hidden="true"
-    data-mdb-backdrop="static"
-    data-mdb-keyboard="false"
-    >
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="exampleModalLabel">Confirm message send</h5>
-      </div>
-      <div class="modal-body">
-              <p class="border-bottom pb-3 text-secondary" id="original-msg"></p>
-              <p class=" text-primary" id="translated-msg"></p>
-      </div>
-      <div class="modal-footer justify-content-between">
-          <button type="button" class="btn btn-secondary" id="original-btn">Send original message</button>
-          <button type="button" class="btn btn-primary" id="new-btn">Send new message</button>
-      </div>
+     tabindex="-1"
+     aria-labelledby="exampleModalLabel"
+     aria-hidden="true"
+     data-mdb-backdrop="static"
+     data-mdb-keyboard="false"
+>
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content p-3">
+            <div class="modal-body" style="width: 100%;">
+                <h4>Your message</h4>
+                <div class="pt-3 pb-4 send-option-wrapper">
+                    <p class="text-dark" id="original-msg"></p>
+                    <button type="button" id="send-original-msg" class="btn btn-outline-dark btn-rounded" disabled><i class="bi-send-fill"></i>
+                    </button>
+                </div>
+                <h4>Some alternatives</h4>
+                <div id="rephrasings-container">
+                    <div id="rephrasings-loader-container" class="text-center pt-5 pb-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <div id="loaded-rephrasings-container">
+                        <div class="pt-3 pb-3 send-option-wrapper">
+                            <p class="text-primary" id="translated-msg-1"></p>
+                            <button type="button" id="send-translated-msg-1" class="btn btn-outline-primary btn-rounded send-translated-msg"><i class="bi-send-fill"></i>
+                            </button>
+                        </div>
+                        <div class="pt-3 pb-3 send-option-wrapper">
+                            <p class="text-primary" id="translated-msg-2"></p>
+                            <button type="button" id="send-translated-msg-2" class="btn btn-outline-primary btn-rounded send-translated-msg"><i class="bi-send-fill"></i>
+                            </button>
+                        </div>
+                        <div class="pt-3 send-option-wrapper">
+                            <p class="text-primary" id="translated-msg-3"></p>
+                            <button type="button" id="send-translated-msg-3" class="btn btn-outline-primary btn-rounded send-translated-msg"><i class="bi-send-fill"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- <p class=" text-primary" id="translated-msg"></p> -->
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
 <!-- confirm modal at start -->
 <div
-  class="modal"
-  id="confirm-modal"
-  data-mdb-backdrop="static"
-  data-mdb-keyboard="false"
-  tabindex="-1"
-  aria-labelledby="staticBackdropLabel"
-  aria-hidden="true"
+    class="modal"
+    id="confirm-modal"
+    data-mdb-backdrop="static"
+    data-mdb-keyboard="false"
+    tabindex="-1"
+    aria-labelledby="staticBackdropLabel"
+    aria-hidden="true"
 >
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="staticBackdropLabel">Chat terms</h5>
-      </div>
-      <div class="modal-body">
-          ...
-      </div>
-      <div class="modal-footer justify-content-between">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" value="" id="confirm-check" />
-            <label class="form-check-label" for="confirm-check">I have read and understand the terms of the chat</label>
-          </div>
-        <button type="button" class="btn btn-primary" id="confirm-btn" disabled>Confirm</button>
-      </div>
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="staticBackdropLabel">Chat terms</h5>
+            </div>
+            <div class="modal-body">
+                ...
+            </div>
+            <div class="modal-footer justify-content-between">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="" id="confirm-check"/>
+                    <label class="form-check-label" for="confirm-check">I have read and understand the terms of the
+                        chat</label>
+                </div>
+                <button type="button" class="btn btn-primary" id="confirm-btn" disabled>Confirm</button>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
 
-  <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-  <script type="text/javascript">
-// scroll to bottom of chats
-$("#chatbox").scrollTop($("#chatbox").prop("scrollHeight"));
-// variables for choosing message
-var original = "";
-var translation = "";
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<script type="text/javascript">
+    // scroll to bottom of chats
+    const chatbox = $('#chatbox');
+    const rephrasingsContainer = $("#rephrasings-container");
+    const rephrasingsLoaderContainer = $("#rephrasings-loader-container");
+    const loadedRephrasingsContainer = $("#loaded-rephrasings-container");
+    chatbox.scrollTop(chatbox.prop("scrollHeight"));
+    // variables for choosing message
+    let original = "";
+    let rephrasings = {};
+    let messageId;
 
-/** confirm modal **/
-$('#confirm-btn').click(function() {
-    console.log('click');
-    $('#confirm-modal').modal('toggle');
-});
+    /** confirm modal **/
+    $('#confirm-btn').click(function () {
+        $('#confirm-modal').modal('toggle');
+    });
 
-$('#confirm-check').change(function(){
-    if(this.checked){
-        $('#confirm-btn').prop('disabled', false)
-    } else {
-        $('#confirm-btn').prop('disabled', true)
-    }
-})
-
-/** message send choice **/
-$("#original-btn").click(function(){
-    send_to_server(original, false);
-    $("#msg-choice").modal("toggle");
-})
-
-$("#new-btn").click(function(){
-    send_to_server(translation, true);
-    $("#msg-choice").modal("toggle");
-})
-
-function send_to_server(msg, is_bot){
-    socket.emit('new_msg', {
-        uid : {{uid}},
-        msg : msg,
-        is_bot : is_bot,
-        cid : {{cid}}
+    $('#confirm-check').change(function () {
+        if (this.checked) {
+            $('#confirm-btn').prop('disabled', false)
+        } else {
+            $('#confirm-btn').prop('disabled', true)
+        }
     })
-}
 
-// function to add chaat
-function addchat(msg, sent, bot){
-    let ins = `
+    /** message send choice **/
+    // $("#original-btn").click(function(){
+    //     send_to_server(original, false);
+    //     $("#msg-choice").modal("toggle");
+    // })
+
+    // $("#new-btn").click(function(){
+    //     send_to_server(rephrasing, true);
+    //     $("#msg-choice").modal("toggle");
+    // })
+
+    $('#clear-chatroom').click(function () {
+        socket.emit('clear_chatroom', {
+            user_id: {{user_id}},
+            chatroom_id: {{chatroom_id}},
+        })
+    });
+
+    function sendToServer(rephrasingId = null) {
+        if (!messageId) {
+            throw new Error('messageId is not defined');
+        }
+
+        socket.emit('new_message', {
+            // TODO: Should really use the session ID instead of relying on the user
+            //  to send this data.
+            user_id: {{user_id}},
+            chatroom_id: {{chatroom_id}},
+            message_id: messageId,
+            rephrasing_id: rephrasingId,
+        })
+    }
+
+    function rephrasingClickHandler() {
+        const rephrasingId = $(this).attr('data-id');
+        sendToServer(parseInt(rephrasingId));
+        clearDisplayChoicesModal();
+        $("#msg-choice").modal("toggle");
+    }
+
+    $("#send-original-msg").click(function () {
+        sendToServer();
+        clearDisplayChoicesModal();
+        $("#msg-choice").modal("toggle");
+    })
+
+    $(".send-translated-msg").click(rephrasingClickHandler);
+
+    // function to add chaat
+    function addChat(message, sent, bot) {
+        let ins = `
     <div class="d-flex flex-row justify-content-${sent ? "end" : "start"}">
       <div>
-        <p class="small p-2 ms-3 mb-1 rounded-3 ${sent ? "bg-primary" : "bg-light"} ${ sent ? "text-light":""}" >${msg}</p>
-        <p class="small ms-3 mb-3 rounded-3 float-end text-${bot ? "success" : "secondary"}">${bot ? "New message by GPT-3" : "Original message from sender"}</p>
+        <p class="small p-2 ms-3 mb-1 rounded-3 ${sent ? "bg-primary" : "bg-light"} ${sent ? "text-light" : ""}" >${message}</p>
+        <p class="small ms-3 mb-3 rounded-3 float-${sent ? "end" : "start"} text-${bot ? "success" : "muted"}">${bot ? "New message by GPT-3" : "Original message from sender"}</p>
       </div>
     </div>
     `;
-    $('#chatbox').append(ins);
-}
-
-function display_choices(og, trans){
-    $("#original-msg").html(og);
-    $("#translated-msg").html(trans);
-    $("#msg-choice").modal("toggle");
-    // set variables for send to server
-    original = og;
-    translation = trans;
-}
-
-// connect socket
-var socket = io.connect('http://' + document.domain + ':' + location.port, {transports : ['websocket']});
-
-socket.on( 'connect', function() {
-
-  var form = $( 'form' ).on( 'submit', function( e ) {
-    e.preventDefault();
-    let user_input = $( '#messagebox' ).val()
-    if (user_input == ""){
-      return;
-    };
-    $("#chatbox").scrollTop($("#chatbox").prop("scrollHeight"));
-
-    socket.emit( 'post', {
-      uname : "{{uname}}",
-      uid : {{uid}},
-      body : user_input,
-      color : "{{color}}",
-      cid : {{cid}}
-    } );
-    // clear textarea
-    $('#messagebox').val('');
-    // play send sound
-    //document.getElementById("sent_sound").play()
-    // ELIZA
-    //console.log("sending eliza")
-    //socket.emit( 'eliza', {msg : user_input})
-
-    //$( 'textarea.message_box' ).val( '' ).focus()
-  } );
-});
-
-socket.on( 'response_{{cid}}_{{uid}}', function( msg ) {
-
-  display_choices(msg["body"], msg["response"]);
-});
-
-socket.on('new_msg_{{cid}}', function( msg ){
-    if ("redirect" in msg){
-        window.location.replace(msg["redirect"]);
+        chatbox.append(ins);
     }
-    addchat(msg["msg"], msg["uid"] == {{uid}}, msg["is_bot"]);
-    $(".msg-count").html(msg["ct"]);
-    $("#chatbox").scrollTop($("#chatbox").prop("scrollHeight"));
-})
 
-$(document).ready(function(){
-    $('#confirm-modal').modal('toggle');
-});
-  </script>
- <script src="{{url_for('static', filename='js/mdb.min.js')}}"></script>
+    function displayChoices(original, rephrasings) {
+        $("#original-msg").html(original);
+        // This will break if we don't have enough of these elements defined statically.
+        // For now we're just going to assume that we have 3 of them.
 
+        Object.entries(rephrasings).forEach(([id, value], i) => {
+            const textElement = $(`#translated-msg-${i + 1}`);
+            textElement.html(value);
+            const buttonElement = $(`#send-translated-msg-${i + 1}`);
+            buttonElement.attr("data-id", id);
+        });
+
+        const loaderHeight = rephrasingsLoaderContainer[0].scrollHeight;
+        const loadedHeight = loadedRephrasingsContainer[0].scrollHeight;
+        rephrasingsLoaderContainer.css("opacity", "0");
+        loadedRephrasingsContainer.css("height", loadedHeight);
+        loadedRephrasingsContainer.css("opacity", "1");
+        rephrasingsContainer.height(loadedHeight);
+    }
+
+    function clearDisplayChoicesModal() {
+        $("#original-msg").html("");
+        for (let i = 1; i <= 3; i++) {
+            const textElement = $(`#translated-msg-${i}`);
+            textElement.html("");
+            const buttonElement = $(`#send-translated-msg-${i}`);
+            buttonElement.attr("data-id", "");
+        }
+        // const loaderHeight = rephrasingsLoaderContainer[0].scrollHeight;
+        const loaderHeight = rephrasingsLoaderContainer[0].scrollHeight;
+        rephrasingsLoaderContainer.css("opacity", "1");
+        loadedRephrasingsContainer.height(loaderHeight);
+        loadedRephrasingsContainer.css("opacity", "0");
+        rephrasingsContainer.height(loaderHeight);
+    }
+
+    // connect socket
+    const socket = io.connect(`http://${document.domain}:${location.port}`, {
+        path: '/ws/socket.io'
+    });
+
+    socket.on('connect', function () {
+        const form = $('form').on('submit', function (e) {
+            e.preventDefault();
+            const messageBox = $('#messagebox');
+            let userInput = messageBox.val()
+            if (userInput === "") {
+                return;
+            }
+            chatbox.scrollTop(chatbox.prop("scrollHeight"));
+
+            socket.emit('post', {
+                uname: "{{uname}}",
+                user_id: {{user_id}},
+                body: userInput,
+                color: "{{color}}",
+                chatroom_id: {{chatroom_id}}
+            });
+            // clear textarea
+            messageBox.val('');
+            // play send sound
+            //document.getElementById("sent_sound").play()
+            // Start up modal to show choices
+            original = userInput;
+        });
+    });
+
+    socket.on('rephrasings_status_{{chatroom_id}}_{{user_id}}', function (response) {
+        console.log("IT HAPPENED")
+        if (!response.will_attempt) {
+            return
+        }
+
+        // Show modal in anticipation of completions
+        $("#msg-choice").modal("toggle");
+        clearDisplayChoicesModal();
+        $("#original-msg").html(original);
+    });
+
+    socket.on('response_{{chatroom_id}}_{{user_id}}', function (response) {
+        messageId = response.message_id;
+        if (Object.values(response.rephrasings).length === 0) {
+            sendToServer();
+            return;
+        }
+        original = response.body;
+        rephrasings = response.rephrasings;
+        displayChoices(response.body, response.rephrasings);
+    });
+
+    socket.on('new_message_{{chatroom_id}}', function (response) {
+        if ("redirect" in response) {
+            window.location.replace(response.redirect);
+        }
+        addChat(response.message, response.user_id === {{user_id}}, response.is_rephrasing);
+        $(".msg-count").html(response["count"]);
+        chatbox.scrollTop(chatbox.prop("scrollHeight"));
+    })
+
+    socket.on('clear_chatroom_{{chatroom_id}}', function (response) {
+        // Clear chatbox
+        chatbox.html("");
+    });
+    $(document).ready(function(){
+        {#$('#confirm-modal').modal('toggle');#}
+    });
+</script>
+
+<script src="{{ url_for('static', path='js/mdb.min.js') }}"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 <head>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/stylesheet.css') }}">
+    <link rel="stylesheet" href="{{url_for('static', path='css/stylesheet.css')}}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@200;400;700&display=swap" rel="stylesheet">
@@ -19,5 +19,5 @@
             <input class="form_submit" type="submit" value="signup" name="signup">
         </form>
     </div>
-    <script src="{{ url_for('static', filename='js/forms.js') }}"></script>
+    <script src="{{ url_for('static', path='js/forms.js') }}"></script>
 </body>

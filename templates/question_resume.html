@@ -4,7 +4,7 @@
 <head>
     <title>Survey</title>
 
-    <link href="{{url_for('static', filename='css/h-custom.css')}}" rel="stylesheet">
+    <link href="{{url_for('static', path='css/h-custom.css')}}" rel="stylesheet">
     {% include "boilerplate_bs.html" %}
 <body>
 
@@ -15,7 +15,7 @@
           <div class="col-md-8 col-lg-6 col-xl-4 offset-xl-1">
              <h2 class="question pb-3">{{json["question"]}}</h2>
 
-            <form class="ajaxform" data-url="/ajax_form">
+            <form class="ajaxform" data-url="/ajax-form">
               <!-- Email input -->
               <div class="form-outline mb-4" id="single_input">
                 {{json["rendered_form"]|safe}}
@@ -46,7 +46,7 @@
 
     {%include "error_modal.html" %}
 
-    <script src="{{ url_for('static', filename='js/forms.js') }}"></script>
-    <script src="{{url_for('static', filename='js/mdb.min.js')}}"></script>
+    <script src="{{ url_for('static', path='js/forms.js') }}"></script>
+    <script src="{{url_for('static', path='js/mdb.min.js')}}"></script>
 </body>
 </html>
