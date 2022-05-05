@@ -146,6 +146,7 @@
     const rephrasingsContainer = $("#rephrasings-container");
     const rephrasingsLoaderContainer = $("#rephrasings-loader-container");
     const loadedRephrasingsContainer = $("#loaded-rephrasings-container");
+    const sendOriginalMessageButton = $("#send-original-msg");
     chatbox.scrollTop(chatbox.prop("scrollHeight"));
     // variables for choosing message
     let original = "";
@@ -205,7 +206,7 @@
         $("#msg-choice").modal("toggle");
     }
 
-    $("#send-original-msg").click(function () {
+    sendOriginalMessageButton.click(function () {
         sendToServer();
         clearDisplayChoicesModal();
         $("#msg-choice").modal("toggle");
@@ -238,12 +239,12 @@
             buttonElement.attr("data-id", id);
         });
 
-        const loaderHeight = rephrasingsLoaderContainer[0].scrollHeight;
         const loadedHeight = loadedRephrasingsContainer[0].scrollHeight;
         rephrasingsLoaderContainer.css("opacity", "0");
         loadedRephrasingsContainer.css("height", loadedHeight);
         loadedRephrasingsContainer.css("opacity", "1");
         rephrasingsContainer.height(loadedHeight);
+        sendOriginalMessageButton.prop("disabled", false);
     }
 
     function clearDisplayChoicesModal() {
@@ -260,6 +261,7 @@
         loadedRephrasingsContainer.height(loaderHeight);
         loadedRephrasingsContainer.css("opacity", "0");
         rephrasingsContainer.height(loaderHeight);
+        sendOriginalMessageButton.prop("disabled", true);
     }
 
     // connect socket
