@@ -11,7 +11,7 @@
     <div class="container py-5">
         <div class="mb-4">
             <h1>{{ prompt }}</h1>
-            <p>Your political affiliation is <b>{{ affiliation }}</b>.</p>
+            <p>You <b>{{ position }}</b> increased gun control.</p>
 {#            <p><span class="text-primary msg-count">{{ message_count }}</span> messages sent out of {{ message_limit }}#}
 {#                required#}
 {#            </p>#}
@@ -72,8 +72,8 @@
         <div class="modal-content p-3">
             <div class="modal-body" style="width: 100%;">
                 <h4>Your message</h4>
-                <div class="pt-3 pb-4 send-option-wrapper">
-                    <p class="text-dark" id="original-msg"></p>
+                <div class="pt-2 pb-4 send-option-wrapper">
+                    <p class="text-dark form-control" id="original-msg"></p>
                     <button type="button" id="send-original-msg" class="btn btn-outline-dark btn-rounded" disabled><i class="bi-send-fill"></i>
                     </button>
                 </div>
@@ -85,24 +85,23 @@
                         </div>
                     </div>
                     <div id="loaded-rephrasings-container">
-                        <div class="pt-3 pb-3 send-option-wrapper">
-                            <p class="text-primary" id="translated-msg-1"></p>
+                        <div class="pt-2 pb-2 send-option-wrapper">
+                            <p class="text-primary form-control" id="translated-msg-1"></p>
                             <button type="button" id="send-translated-msg-1" class="btn btn-outline-primary btn-rounded send-translated-msg"><i class="bi-send-fill"></i>
                             </button>
                         </div>
-                        <div class="pt-3 pb-3 send-option-wrapper">
-                            <p class="text-primary" id="translated-msg-2"></p>
+                        <div class="pt-2 pb-2 send-option-wrapper">
+                            <p class="text-primary form-control" id="translated-msg-2"></p>
                             <button type="button" id="send-translated-msg-2" class="btn btn-outline-primary btn-rounded send-translated-msg"><i class="bi-send-fill"></i>
                             </button>
                         </div>
-                        <div class="pt-3 send-option-wrapper">
-                            <p class="text-primary" id="translated-msg-3"></p>
+                        <div class="pt-2 send-option-wrapper">
+                            <p class="text-primary form-control" id="translated-msg-3"></p>
                             <button type="button" id="send-translated-msg-3" class="btn btn-outline-primary btn-rounded send-translated-msg"><i class="bi-send-fill"></i>
                             </button>
                         </div>
                     </div>
                 </div>
-                <!-- <p class=" text-primary" id="translated-msg"></p> -->
             </div>
         </div>
     </div>
@@ -147,6 +146,7 @@
     const rephrasingsLoaderContainer = $("#rephrasings-loader-container");
     const loadedRephrasingsContainer = $("#loaded-rephrasings-container");
     const sendOriginalMessageButton = $("#send-original-msg");
+    const originalMessageInput = $("#original-msg");
     chatbox.scrollTop(chatbox.prop("scrollHeight"));
     // variables for choosing message
     let original = "";
@@ -184,7 +184,11 @@
         })
     });
 
-    function sendToServer(rephrasingId = null) {
+    $('#rephrasings-container .form-control').on("input", function () {
+        updateRephrasingsHeight();
+    });
+
+    function sendToServer(body, rephrasingId = null) {
         if (!messageId) {
             throw new Error('messageId is not defined');
         }
@@ -195,19 +199,21 @@
             user_id: {{user_id}},
             chatroom_id: {{chatroom_id}},
             message_id: messageId,
+            body,
             rephrasing_id: rephrasingId,
         })
     }
 
     function rephrasingClickHandler() {
         const rephrasingId = $(this).attr('data-id');
-        sendToServer(parseInt(rephrasingId));
+        // sendToServer($(this).html(), parseInt(rephrasingId));
+        sendToServer($(this).parent().find('.form-control').text());
         clearDisplayChoicesModal();
         $("#msg-choice").modal("toggle");
     }
 
     sendOriginalMessageButton.click(function () {
-        sendToServer();
+        sendToServer(originalMessageInput.text());
         clearDisplayChoicesModal();
         $("#msg-choice").modal("toggle");
     })
@@ -215,20 +221,31 @@
     $(".send-translated-msg").click(rephrasingClickHandler);
 
     // function to add chaat
-    function addChat(message, sent, bot) {
+    function addChat(message, sent) {
         let ins = `
-    <div class="d-flex flex-row justify-content-${sent ? "end" : "start"}">
+    <div class="mb-2 d-flex flex-row justify-content-${sent ? "end" : "start"}">
       <div>
         <p class="small p-2 ms-3 mb-1 rounded-3 ${sent ? "bg-primary" : "bg-light"} ${sent ? "text-light" : ""}" >${message}</p>
-        <p class="small ms-3 mb-3 rounded-3 float-${sent ? "end" : "start"} text-${bot ? "success" : "muted"}">${bot ? "New message by GPT-3" : "Original message from sender"}</p>
       </div>
     </div>
     `;
         chatbox.append(ins);
     }
 
+    function updateRephrasingsHeight() {
+        // const loadedHeight = loadedRephrasingsContainer[0].scrollHeight;
+        // Compute loadedHeight based on DOM scrollHeight of children
+        let loadedHeight = 16;
+        Array.from(loadedRephrasingsContainer[0].children).forEach(function (child) {
+            loadedHeight += child.offsetHeight;
+        })
+        console.log(loadedHeight);
+        loadedRephrasingsContainer.css("height", loadedHeight);
+        rephrasingsContainer.height(loadedHeight);
+    }
+
     function displayChoices(original, rephrasings) {
-        $("#original-msg").html(original);
+        originalMessageInput.html(original);
         // This will break if we don't have enough of these elements defined statically.
         // For now we're just going to assume that we have 3 of them.
 
@@ -237,23 +254,25 @@
             textElement.html(value);
             const buttonElement = $(`#send-translated-msg-${i + 1}`);
             buttonElement.attr("data-id", id);
+            textElement.prop("contenteditable", true);
         });
 
-        const loadedHeight = loadedRephrasingsContainer[0].scrollHeight;
+        updateRephrasingsHeight();
         rephrasingsLoaderContainer.css("opacity", "0");
-        loadedRephrasingsContainer.css("height", loadedHeight);
         loadedRephrasingsContainer.css("opacity", "1");
-        rephrasingsContainer.height(loadedHeight);
         sendOriginalMessageButton.prop("disabled", false);
+        originalMessageInput.prop("disabled", false);
+        originalMessageInput.prop("contenteditable", true);
     }
 
     function clearDisplayChoicesModal() {
-        $("#original-msg").html("");
+        originalMessageInput.html("");
         for (let i = 1; i <= 3; i++) {
             const textElement = $(`#translated-msg-${i}`);
             textElement.html("");
             const buttonElement = $(`#send-translated-msg-${i}`);
             buttonElement.attr("data-id", "");
+            textElement.prop("contenteditable", false);
         }
         // const loaderHeight = rephrasingsLoaderContainer[0].scrollHeight;
         const loaderHeight = rephrasingsLoaderContainer[0].scrollHeight;
@@ -262,6 +281,8 @@
         loadedRephrasingsContainer.css("opacity", "0");
         rephrasingsContainer.height(loaderHeight);
         sendOriginalMessageButton.prop("disabled", true);
+        originalMessageInput.prop("disabled", true);
+        originalMessageInput.prop("contenteditable", false);
     }
 
     // connect socket
@@ -296,7 +317,6 @@
     });
 
     socket.on('rephrasings_status_{{chatroom_id}}_{{user_id}}', function (response) {
-        console.log("IT HAPPENED")
         if (!response.will_attempt) {
             return
         }
@@ -304,13 +324,13 @@
         // Show modal in anticipation of completions
         $("#msg-choice").modal("toggle");
         clearDisplayChoicesModal();
-        $("#original-msg").html(original);
+        originalMessageInput.html(original);
     });
 
     socket.on('response_{{chatroom_id}}_{{user_id}}', function (response) {
         messageId = response.message_id;
         if (Object.values(response.rephrasings).length === 0) {
-            sendToServer();
+            sendToServer(originalMessageInput.text());
             return;
         }
         original = response.body;
@@ -322,7 +342,7 @@
         if ("redirect" in response) {
             window.location.replace(response.redirect);
         }
-        addChat(response.message, response.user_id === {{user_id}}, response.is_rephrasing);
+        addChat(response.message, response.user_id === {{user_id}});
         $(".msg-count").html(response["count"]);
         chatbox.scrollTop(chatbox.prop("scrollHeight"));
     })

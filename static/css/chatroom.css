@@ -2,7 +2,7 @@ body {
   background: #f8f8f8;
   color: #272727;
   font-weight: normal;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif;
 }
 
 /*#chat3 .form-control {*/
@@ -34,7 +34,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 32px;
+  gap: 24px;
 }
 
 .send-option-wrapper > p {
@@ -48,6 +48,8 @@ body {
 #loaded-rephrasings-container {
   height: 0;
   overflow: hidden;
+  padding: 8px;
+  margin: -8px;
   transition: height 0.2s ease-out, opacity 0.2s ease-out;
   opacity: 0;
 }
@@ -66,4 +68,28 @@ body {
 
 #rephrasings-container > * {
   position: absolute;
+}
+
+.send-option-wrapper .form-control {
+  padding: 12px 16px;
+}
+
+.send-option-wrapper .form-control.text-primary[contenteditable="true"] {
+  border: 1px solid #0d6efd;
+}
+
+.send-option-wrapper .form-control.text-primary[contenteditable="true"]:focus,
+.send-option-wrapper .form-control.text-primary[contenteditable="true"]:active {
+  border: 1px solid #0d6efd;
+  box-shadow: 0 0 0 0.2rem #0d6efd66;
+}
+
+.send-option-wrapper .form-control.text-dark[contenteditable="true"] {
+  border: 1px solid #212529;
+}
+
+.send-option-wrapper .form-control.text-dark[contenteditable="true"]:focus,
+.send-option-wrapper .form-control.text-dark[contenteditable="true"]:active {
+  border: 1px solid #212529;
+  box-shadow: 0 0 0 0.2rem #21252966;
 }
