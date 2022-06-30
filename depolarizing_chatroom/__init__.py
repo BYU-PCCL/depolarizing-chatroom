@@ -1,7 +1,6 @@
 import os
 from os import path
 
-# import eventlet
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.requests import Request

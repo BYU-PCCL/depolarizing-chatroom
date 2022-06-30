@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Form
+from fastapi import Depends, HTTPException
 from fastapi.requests import Request
 from pydantic import BaseModel
 
