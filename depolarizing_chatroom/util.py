@@ -5,8 +5,8 @@ from secrets import choice
 from string import ascii_letters, digits
 from typing import List, Tuple
 
-from deradicalizing_chatroom.constants import MIN_COUNTED_MESSAGE_WORD_COUNT
-from deradicalizing_chatroom.data import models
+from .constants import MIN_COUNTED_MESSAGE_WORD_COUNT
+from .data import models
 
 
 def random_color():
