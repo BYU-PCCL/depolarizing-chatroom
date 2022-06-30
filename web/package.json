@@ -1,0 +1,68 @@
+{
+  "name": "chatroom-web",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@monaco-editor/react": "^4.4.5",
+    "@testing-library/jest-dom": "^5.16.4",
+    "@testing-library/react": "^13.2.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/he": "^1.1.2",
+    "@types/jest": "^27.5.1",
+    "@types/node": "^16.11.35",
+    "@types/react": "^18.0.9",
+    "@types/react-beautiful-dnd": "^13.1.2",
+    "@types/react-dom": "^18.0.4",
+    "@types/react-modal": "^3.13.1",
+    "@types/sanitize-html": "^2.6.2",
+    "@types/yaireo__relative-time": "^1.0.0",
+    "@yaireo/relative-time": "^1.0.2",
+    "he": "^1.2.0",
+    "monaco-editor": "^0.33.0",
+    "react": "^18.1.0",
+    "react-beautiful-dnd": "^13.1.0",
+    "react-contenteditable": "^3.3.6",
+    "react-dom": "^18.1.0",
+    "react-modal": "^3.15.1",
+    "react-query": "^3.39.1",
+    "react-router-dom": "6",
+    "react-scripts": "5.0.1",
+    "sanitize-html": "^2.7.0",
+    "socket.io-client": "^4.5.1",
+    "typescript": "^4.6.4",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "packageManager": "yarn@3.2.1",
+  "devDependencies": {
+    "autoprefixer": "^10.4.7",
+    "eslint": "^8.15.0",
+    "eslint-config-react-app": "^7.0.1",
+    "postcss": "^8.4.13",
+    "prettier": "^2.6.2",
+    "tailwindcss": "^3.0.24"
+  }
+}
