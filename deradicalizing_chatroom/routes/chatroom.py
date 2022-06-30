@@ -1,39 +1,37 @@
 import asyncio
 from datetime import datetime
 
-from fastapi import Depends, HTTPException
-from fastapi.requests import Request
-from fastapi.responses import HTMLResponse
+from fastapi import Depends
+from pydantic import BaseModel
 
-import suggest_rephrasings as sr
 from .. import (
     app,
-    very_insecure_session_auth_we_know_the_risks,
-    templates,
     socket_manager,
     DataAccess,
     get_data_access,
+    get_user_from_auth_code,
+    suggest_rephrasings as sr,
 )
-from ..constants import MESSAGE_LIMIT
+from ..constants import (
+    MIN_COUNTED_MESSAGE_WORD_COUNT,
+    MIN_REPHRASING_TURNS,
+    REPHRASE_EVERY_N_TURNS,
+)
 from ..data import models
-from ..util import message_received, format_dt
+from ..data.models import UserPosition
+from ..util import calculate_turns, last_n_turns
 
 
-@app.get("/chatroom/{chatroom_id}")
+class InitialViewBody(BaseModel):
+    view: str
+
+
+@app.get("/chatroom")
 def chatroom(
-    chatroom_id: int,
-    request: Request,
-    _: None = Depends(very_insecure_session_auth_we_know_the_risks),
+    user: models.User = Depends(get_user_from_auth_code),
     access: DataAccess = Depends(get_data_access),
-) -> HTMLResponse:
-    # get user information from db
-    user = (
-        access.session.query(models.User)
-        .filter_by(email=request.session["user"]["email"])
-        .first()
-    )
-    if user.chatroom_id != chatroom_id:
-        raise HTTPException(status_code=401, detail="Invalid chatroom")
+):
+    chatroom_id = user.chatroom_id
     # get all previously sent messages in the chatroom
     messages = (
         access.session.query(models.Message).filter_by(chatroom_id=chatroom_id).all()
@@ -41,44 +39,87 @@ def chatroom(
     prompt = (
         access.session.query(models.Chatroom).filter_by(id=chatroom_id).first().prompt
     )
-    return templates.TemplateResponse(
-        "chatroom_bs.html",
-        dict(
-            request=request,
-            username=user.username,
-            affiliation=user.affiliation,
-            color=user.color,
-            user_id=user.id,
-            chatroom_id=chatroom_id,
-            messages=messages,
-            prompt=prompt,
-            message_count=user.message_count,
-            message_limit=MESSAGE_LIMIT,
-        ),
-    )
+    return {"prompt": prompt, "messages": messages, "id": chatroom_id}
+
+
+@app.post("/initial-view")
+async def initial_view(
+    body: InitialViewBody,
+    user: models.User = Depends(get_user_from_auth_code),
+    access: DataAccess = Depends(get_data_access),
+):
+    user.view = body.view
+    access.commit()
 
 
 @socket_manager.on("join_chatroom")
 async def handle_join(session_id, body) -> None:
-    await socket_manager.emit("joined_chatroom", body, callback=message_received)
-
-
-@socket_manager.on("new_message")
-async def handle_new_message(session_id, body) -> None:
     from .. import access
 
-    user_id = body["user_id"]
-    chatroom_id = body["chatroom_id"]
+    try:
+        user_id = body["token"]
+    except KeyError:
+        return
+
+    user = access.session.query(models.User).filter_by(response_id=user_id).first()
+
+    if not user:
+        return
+
+    await socket_manager.save_session(session_id, {"id": user_id})
+
+    socket_manager.enter_room(session_id, f"chatroom-{user.chatroom_id}")
+    # TODO: Handle pairing with other users—and notifying them
+    # await socket_manager.emit(
+    #     "new_message", body, room=f"chatroom-{body['id']}", callback=message_received
+    # )
+
+    messages = []
+    for message in access.session.query(models.Message).filter_by(
+        chatroom_id=user.chatroom_id
+    ):
+        messages.append(
+            {
+                "id": message.id,
+                "user_id": message.user.id,
+                "message": message.selected_body,
+            }
+        )
+
+    await socket_manager.emit(
+        f"chatroom_messages",
+        messages,
+        to=session_id,
+    )
+
+
+async def get_socket_session_user(access: DataAccess, session_id: str) -> models.User:
+    user_id = (await socket_manager.get_session(session_id))["id"]
+
+    user = access.session.query(models.User).filter_by(response_id=user_id).first()
+
+    return user
+
+
+@socket_manager.on("rephrasing_response")
+async def handle_rephrasing_response(session_id, body) -> None:
+    from .. import access
+
+    user = await get_socket_session_user(access, session_id)
+    if not user:
+        return
+    user_id = user.id
+
+    chatroom_id = user.chatroom_id
 
     message_id = body["message_id"]
+    message_body = body["body"]
     message = access.session.query(models.Message).filter_by(id=message_id).first()
 
-    # This is horrible and beyond insecure.
-    if message.sender_id != user_id or message.chatroom_id != chatroom_id:
+    if message.sender_id != user.id or message.chatroom_id != chatroom_id:
         return
 
     rephrasing_id = body.get("rephrasing_id")
-    rephrasing = None
     if rephrasing_id:
         rephrasing = (
             access.session.query(models.Rephrasing).filter_by(id=rephrasing_id).first()
@@ -87,10 +128,16 @@ async def handle_new_message(session_id, body) -> None:
         if rephrasing.message_id != message.id:
             return
 
+        if rephrasing.body != message_body:
+            rephrasing.edited_body = message_body
+
         message.accepted_rephrasing_id = rephrasing.id
     else:
         # I'm pretty sure this is done implicitly
         message.accepted_rephrasing_id = None
+
+        if message.body != message_body:
+            message.edited_body = message_body
 
     # get user
     user = access.session.query(models.User).filter_by(id=user_id).first()
@@ -108,59 +155,77 @@ async def handle_new_message(session_id, body) -> None:
     # get chatroom, send message
     chatroom = access.session.query(models.Chatroom).filter_by(id=chatroom_id).first()
 
-    if user.message_count >= MESSAGE_LIMIT:
-        # redirect each user
-        for u in chatroom.users:
-            u.status = "postsurvey"
-        access.commit()
-        body["redirect"] = "/"
+    # if user.message_count >= MESSAGE_LIMIT:
+    #     # redirect each user
+    #     for u in chatroom.users:
+    #         u.status = "postsurvey"
+    #     access.commit()
+    #     body["redirect"] = "/"
 
     response = dict(
         user_id=user_id,
-        chatroom_id=chatroom_id,
-        is_rephrasing=bool(rephrasing),
-        message=rephrasing and rephrasing.body or message.body,
+        message=message.selected_body,
     )
 
     await socket_manager.emit(
-        f"new_message_{body['chatroom_id']}", response, callback=message_received
+        f"new_message",
+        response,
+        to=f"chatroom-{chatroom_id}",
     )
 
 
-@socket_manager.on("post")
+@socket_manager.on("message")
 async def handle_message_sent(session_id, body):
-    print("message sent")
     from .. import access
 
-    # store message in database
+    user = await get_socket_session_user(access, session_id)
+    if not user:
+        return
 
-    message = body["body"]
-    # get chatroom
+    chatroom_id = user.chatroom_id
     chatroom = (
-        access.session.query(models.Chatroom).filter_by(id=body["chatroom_id"]).first()
+        access.session.query(models.Chatroom).filter_by(id=user.chatroom_id).first()
     )
 
-    # get user
-    user = access.session.query(models.User).filter_by(id=body["user_id"]).first()
+    message = body["body"]
 
-    # TODO(vinhowe): figure out how to get past n turns
-
-    last_n_messages = (
+    chatroom_messages = (
         access.session.query(models.Message)
-        .filter_by(chatroom_id=body["chatroom_id"])
-        .order_by(models.Message.send_time.desc())
-        .limit(3)
+        .filter_by(chatroom_id=chatroom_id)
+        .order_by(models.Message.send_time.asc())
         .all()
     )
 
-    print("Message")
+    # Count messages, not including anything with fewer than 4 words (just counting by
+    # spaces), a turn only happens if one user sends at least one message with at least
+    # 4 words, and we need 3 turns, or three alternating chunks of at least one message
+    # with at least 4 words. So we calculate turns and only send rephrasings if we have
+    # turns % 3 == 0. Probably a little expensive, but it seems fine.
+    # We'll rephrase the first message sent because the first two messages are input
+    # before the chat starts.
 
-    will_attempt_rephrasings = len(last_n_messages) >= 2
+    will_attempt_rephrasings = False
+    turns = []
+    if user.apply_treatment:
+        turn_count, user_turn_count, last_turn_counted, turns = calculate_turns(
+            chatroom_messages, user.id
+        )
+        message_is_min_length = len(message.split()) >= MIN_COUNTED_MESSAGE_WORD_COUNT
+        new_turn = chatroom_messages and user.id != chatroom_messages[-1].sender_id
+
+        will_attempt_rephrasings = False
+
+        if message_is_min_length and (new_turn or not last_turn_counted):
+            user_turn_count += 1
+            will_attempt_rephrasings = (
+                user_turn_count > MIN_REPHRASING_TURNS
+                and user_turn_count % REPHRASE_EVERY_N_TURNS == 0
+            )
 
     await socket_manager.emit(
-        f'rephrasings_status_{body["chatroom_id"]}_{body["user_id"]}',
+        "rephrasings_status",
         dict(will_attempt=will_attempt_rephrasings),
-        callback=message_received,
+        to=session_id,
     )
 
     if will_attempt_rephrasings:
@@ -168,22 +233,32 @@ async def handle_message_sent(session_id, body):
         await asyncio.sleep(0.2)
         turns = [
             {
-                "party": message.user.affiliation,
+                "position": "Opponent"
+                if message.user.position is UserPosition.OPPOSE
+                else "Supporter",
                 "message": (rephrasing := message.accepted_rephrasing)
                 and rephrasing.body
                 or message.body,
             }
-            for message in reversed(last_n_messages)
+            for message in last_n_turns(turns, 2)
         ]
-        turns.append({"party": user.affiliation, "message": message})
+        turns.append(
+            {
+                "position": "Opponent"
+                if user.position is UserPosition.OPPOSE
+                else "Supporter",
+                "message": message,
+            }
+        )
+        print()
+        print("⭐️⭐️ Prompt ⭐️⭐️")
+        print()
         print(sr.create_prompt(turns, sr.rephrasing_specs["validate"]))
         gpt_responses, _ = sr.collect_rephrasings(
             sr.create_rephrasing_for_turns(turns, sr.rephrasing_specs["validate"], n=3)
         )
     else:
         gpt_responses = []
-
-    body["responses"] = gpt_responses
 
     access.add_to_db(
         message := models.Message(
@@ -194,7 +269,17 @@ async def handle_message_sent(session_id, body):
         )
     )
 
-    # Add rephrasings to db
+    if not will_attempt_rephrasings or not gpt_responses:
+        await socket_manager.emit(
+            f"new_message",
+            dict(
+                user_id=user.id,
+                message=message.body,
+            ),
+            to=f"chatroom-{chatroom_id}",
+        )
+        return
+
     rephrasings = []
     for response in gpt_responses:
         rephrasing = models.Rephrasing(message_id=message.id, body=response)
@@ -202,35 +287,32 @@ async def handle_message_sent(session_id, body):
         access.session.add(rephrasing)
     access.commit()
 
-    body["time"] = format_dt(datetime.now())
-
-    response = dict(
-        message_id=message.id,
-        body=message.body,
-        rephrasings={r.id: r.body for r in rephrasings},
-    )
-
-    # send response to that chatroom
     await socket_manager.emit(
-        f'response_{body["chatroom_id"]}_{body["user_id"]}',
-        response,
-        callback=message_received,
+        "rephrasings_response",
+        dict(
+            message_id=message.id,
+            body=message.body,
+            rephrasings={r.id: r.body for r in rephrasings},
+        ),
+        to=session_id,
     )
 
 
 @socket_manager.on("clear_chatroom")
-async def clear_chatroom(session_id, body):
+async def clear_chatroom(session_id):
     from .. import access
 
-    chatroom = (
-        access.session.query(models.Chatroom).filter_by(id=body["chatroom_id"]).first()
-    )
+    user = await get_socket_session_user(access, session_id)
+    if not user:
+        return
+
+    # get chatroom
+    chatroom_id = user.chatroom_id
+
+    chatroom = access.session.query(models.Chatroom).filter_by(id=chatroom_id).first()
     for message in chatroom.messages:
         access.session.delete(message)
 
     access.commit()
 
-    await socket_manager.emit(
-        f'clear_chatroom_{body["chatroom_id"]}',
-        callback=message_received,
-    )
+    await socket_manager.emit(f"clear_chatroom", to=f"chatroom-{chatroom_id}")

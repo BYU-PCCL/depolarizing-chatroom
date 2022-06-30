@@ -1,4 +1,3 @@
-# for now, have waiting room queue be a dictionary of lists (for code names)
-MESSAGE_LIMIT = 5
-THRESHOLD = 2
-TEST = False
+MIN_COUNTED_MESSAGE_WORD_COUNT = 4
+MIN_REPHRASING_TURNS = 2
+REPHRASE_EVERY_N_TURNS = 3

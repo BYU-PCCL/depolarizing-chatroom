@@ -1,3 +1,5 @@
+import enum
+
 from sqlalchemy import (
     Integer,
     Float,
@@ -7,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Boolean,
     DateTime,
+    Enum,
 )
 from sqlalchemy.orm import relationship
 
@@ -36,11 +39,16 @@ class Rephrasing(Base):
     id = Column(Integer, primary_key=True)
     message_id = Column(Integer, ForeignKey("messages.id"))
     body = Column(Text, nullable=False)
+    edited_body = Column(Text)
 
     # relationship (many-to-one with messages)
     message = relationship(
         "Message", back_populates="rephrasings", foreign_keys=message_id
     )
+
+    @property
+    def selected_body(self) -> str:
+        return self.edited_body or self.body
 
 
 class Message(Base):
@@ -50,6 +58,8 @@ class Message(Base):
     chatroom_id = Column(Integer, ForeignKey("chatrooms.id"))
     sender_id = Column(Integer, ForeignKey("users.id"))
     body = Column(Text, nullable=False)
+    # This should be nullable
+    edited_body = Column(Text)
     send_time = Column(DateTime, nullable=False)
     accepted_rephrasing_id = Column(Integer, ForeignKey("rephrasings.id"))
 
@@ -69,6 +79,13 @@ class Message(Base):
     chatroom = relationship("Chatroom", back_populates="messages")
     user = relationship("User", back_populates="messages")
 
+    @property
+    def selected_body(self) -> str:
+        if not (rephrasing := self.accepted_rephrasing):
+            return self.edited_body or self.body
+
+        return rephrasing.selected_body
+
     def __repr__(self) -> str:
         return (
             f"{self.user}@{self.chatroom}: {self.message}"
@@ -78,23 +95,24 @@ class Message(Base):
         )
 
 
+class UserPosition(enum.Enum):
+    OPPOSE = "oppose"
+    SUPPORT = "support"
+
+
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
     chatroom_id = Column(Integer, ForeignKey("chatrooms.id"))
     code_id = Column(Integer, ForeignKey("codes.id"))
-    email = Column(String(320), nullable=False, unique=True)
-    affiliation = Column(String(320), nullable=False)
-    password = Column(String(64), nullable=False)
-    salt = Column(String(7), nullable=False)
-    # TODO: WHAT DOES THIS DO?
-    curq = Column(Integer, default=1)
-    username = Column(String(320))
-    color = Column(String(7))
+    position = Column(Enum(UserPosition))
+    response_id = Column(String(320), nullable=False)
     waiting = Column(DateTime)
     message_count = Column(Integer, default=0)
     status = Column(String(20), default="code")
+    apply_treatment = Column(Boolean, default=True)
+    view = Column(String(), nullable=True)
     # waiting = db.Column(db.DateTime)
 
     # relationship (many-to-one with chatrooms, one-to-many with messages,

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from . import models
 from .database import Base, engine
-from ..util import hash_pw, sec, random_color
+from .models import UserPosition
 
 
 class DataAccess:
@@ -48,72 +48,36 @@ class DataAccess:
 
         returns Chatroom
         """
-
         self.add_to_db((c := models.Chatroom(prompt=prompt)))
         return c
 
-    def process_login(self, email, pw) -> Optional[models.User]:
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
+    def process_login(self, response_id) -> Optional[models.User]:
         """
         If database contains User, log them in
         """
-        q = self._session.query(models.User).filter_by(email=email).first()
+        q = self._session.query(models.User).filter_by(response_id=response_id).first()
         if q is not None:
             # confirm user password
-            if hash_pw(pw, q.salt) != q.password:
-                return None
-            # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-            # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-            # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-            # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
             return q
 
         return None
 
-    def process_signup(self, email, username, affiliation, pw) -> bool:
+    def process_signup(self, response_id, position, apply_treatment) -> bool:
         """
-        If database has email or username, return false
+        If database has response_id, return false
         otherwise, add user to Users
         """
-        # if contains email or username
-        if (
-            self._session.query(models.User).filter_by(email=email).first()
-            or self._session.query(models.User).filter_by(username=username).first()
-        ):
+        if self._session.query(models.User).filter_by(response_id=response_id).first():
             return False
 
-        # add user to database
-        salt = sec(7)
-        self.add_to_db(
-            models.User(
-                email=email,
-                username=username,
-                affiliation=affiliation,
-                password=hash_pw(pw, salt),
-                salt=salt,
-                color=random_color(),
-            )
+        user = models.User(
+            response_id=response_id, position=position, apply_treatment=apply_treatment
         )
 
-        # add user to session
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # TODO: HANDLE SESSION CHANGES IN THE CALLING METHOD
-        # session["user"] = {"email": email, "username": username}
+        # add user to database
+        self.add_to_db(user)
 
-        return True
+        return user
 
 
 class TestDataAccess(DataAccess):
@@ -136,9 +100,7 @@ class TestDataAccess(DataAccess):
         # populate database with nusers users
         users = []
         for nu in range(nusers):
-            u = models.User(
-                email=f"{nu}@email.com", username=f"user{nu}", color=random_color()
-            )
+            u = models.User(response_id=str(nu))
             users.append(u)
             self.add_to_db(u)
 
@@ -168,36 +130,26 @@ class TestDataAccess(DataAccess):
         # Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
 
-        salt = sec(7)
-        republican = models.User(
-            # TODO(vinhowe): Why do we have colors???
-            email=f"republican@a.com",
-            username=f"republican",
-            password=hash_pw("a", salt),
-            salt=salt,
+        oppose = models.User(
+            response_id="oppose",
             status="chatroom",
-            affiliation="Republican",
-            color=random_color(),
+            position=UserPosition.OPPOSE,
         )
-        democrat = models.User(
-            email=f"democrat@a.com",
-            username=f"democrat",
-            password=hash_pw("a", salt),
-            salt=salt,
+        support = models.User(
+            response_id="support",
             status="chatroom",
-            affiliation="Democrat",
-            color=random_color(),
+            position=UserPosition.SUPPORT,
         )
-        self.add_to_db(republican)
-        self.add_to_db(democrat)
+        self.add_to_db(oppose)
+        self.add_to_db(support)
 
-        code = self.add_code("chat", "2098-01-01")
-        chatroom = self.add_chatroom("Gun control in America: More or Less?")
+        # code = self.add_code("chat", "2098-01-01")
+        chatroom = self.add_chatroom("Gun Control in America: More or Less?")
 
-        republican.code_id = code.id
-        republican.chatroom_id = chatroom.id
+        # oppose.code_id = code.id
+        oppose.chatroom_id = chatroom.id
 
-        democrat.code_id = code.id
-        democrat.chatroom_id = chatroom.id
+        # support.code_id = code.id
+        support.chatroom_id = chatroom.id
 
         self.commit()
