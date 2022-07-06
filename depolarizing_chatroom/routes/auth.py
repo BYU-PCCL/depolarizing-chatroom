@@ -86,5 +86,6 @@ def post_test_signup(
             chatroom = access.add_chatroom("Gun Control in America: More or Less?")
             pair_with_user.chatroom_id = chatroom.id
             signup_user.chatroom_id = chatroom.id
+            access.session.commit()
 
     return {"status": "ok"}
