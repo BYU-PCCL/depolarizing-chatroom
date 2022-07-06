@@ -38,16 +38,6 @@ const TUTORIAL_MESSAGES: TutorialMessage[] = [
   },
   {
     type: "message",
-    body: "Right now, this is just practice—you are not talking to another person yet.",
-    delay: 3000,
-  },
-  {
-    type: "message",
-    body: "Part of our goal in these discussions is to find out if an artificial intelligence algorithm can make suggestions to help these kinds of discussions be more productive.",
-    delay: 4000,
-  },
-  {
-    type: "message",
     body: "Let's practice. I'll send you some messages:",
     delay: 3000,
   },
