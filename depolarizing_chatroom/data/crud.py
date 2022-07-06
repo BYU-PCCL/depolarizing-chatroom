@@ -62,7 +62,7 @@ class DataAccess:
 
         return None
 
-    def process_signup(self, response_id, position, apply_treatment) -> bool:
+    def process_signup(self, response_id, treatment: int) -> bool:
         """
         If database has response_id, return false
         otherwise, add user to Users
@@ -70,9 +70,7 @@ class DataAccess:
         if self._session.query(models.User).filter_by(response_id=response_id).first():
             return False
 
-        user = models.User(
-            response_id=response_id, position=position, apply_treatment=apply_treatment
-        )
+        user = models.User(response_id=response_id, treatment=treatment)
 
         # add user to database
         self.add_to_db(user)
@@ -133,12 +131,12 @@ class TestDataAccess(DataAccess):
         oppose = models.User(
             response_id="oppose",
             status="chatroom",
-            position=UserPosition.OPPOSE,
+            treatment=4,
         )
         support = models.User(
             response_id="support",
             status="chatroom",
-            position=UserPosition.SUPPORT,
+            treatment=1,
         )
         self.add_to_db(oppose)
         self.add_to_db(support)

@@ -106,12 +106,19 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     chatroom_id = Column(Integer, ForeignKey("chatrooms.id"))
     code_id = Column(Integer, ForeignKey("codes.id"))
-    position = Column(Enum(UserPosition))
     response_id = Column(String(320), nullable=False)
     waiting = Column(DateTime)
     message_count = Column(Integer, default=0)
     status = Column(String(20), default="code")
-    apply_treatment = Column(Boolean, default=True)
+    # Treatment key:
+    # 1: Supports stricter gun laws, treated with GPT-3. Matched with 5.
+    # 2: Supports stricter gun laws, talks to person treated with GPT-3. Matched with 4.
+    # 3: Supports stricter gun laws, untreated conversation. Matched with 6.
+    # 4: Opposes stricter gun laws, treated with GPT-3. Matched with 2.
+    # 5: Opposes stricter gun laws, talks to person treated with GPT-3. Matched with 1.
+    # 6: Opposes stricter gun laws, untreated conversation. Matched with 3.
+    # 7: Talking to GPT-3, always treated with GPT-3.
+    treatment = Column(Integer)
     view = Column(String(), nullable=True)
     # waiting = db.Column(db.DateTime)
 
@@ -123,6 +130,34 @@ class User(Base):
     )
     code = relationship("Code", back_populates="users")
     responses = relationship("Response", back_populates="user")
+
+    @property
+    def position(self) -> UserPosition:
+        if self.treatment < 3:
+            return UserPosition.SUPPORT
+        return UserPosition.OPPOSE
+
+    @property
+    def receives_rephrasings(self) -> bool:
+        if self.treatment < 1:
+            return False
+        return (self.treatment - 1) % 3 == 0
+
+    @property
+    def match_with(self) -> int:
+        if self.treatment == 1:
+            return 5
+        if self.treatment == 2:
+            return 4
+        if self.treatment == 3:
+            return 6
+        if self.treatment == 4:
+            return 2
+        if self.treatment == 5:
+            return 1
+        if self.treatment == 6:
+            return 3
+        return None
 
     def __repr__(self):
         return f"{self.username}:{self.code}"

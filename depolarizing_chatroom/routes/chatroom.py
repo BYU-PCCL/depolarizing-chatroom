@@ -16,6 +16,7 @@ from ..constants import (
     MIN_COUNTED_MESSAGE_WORD_COUNT,
     MIN_REPHRASING_TURNS,
     REPHRASE_EVERY_N_TURNS,
+    SOCKET_NAMESPACE_CHATROOM,
 )
 from ..data import models
 from ..data.models import UserPosition
@@ -52,12 +53,14 @@ async def initial_view(
     access.commit()
 
 
-@socket_manager.on("join_chatroom")
-async def handle_join(session_id, body) -> None:
-    from .. import access
+@socket_manager.on("connect", namespace=SOCKET_NAMESPACE_CHATROOM)
+async def handle_connect(session_id, _environ, auth) -> None:
+    from .. import get_data_access
+
+    access = get_data_access()
 
     try:
-        user_id = body["token"]
+        user_id = auth["token"]
     except KeyError:
         return
 
@@ -66,9 +69,13 @@ async def handle_join(session_id, body) -> None:
     if not user:
         return
 
-    await socket_manager.save_session(session_id, {"id": user_id})
+    await socket_manager.save_session(
+        session_id, {"id": user_id}, namespace=SOCKET_NAMESPACE_CHATROOM
+    )
 
-    socket_manager.enter_room(session_id, f"chatroom-{user.chatroom_id}")
+    socket_manager.enter_room(
+        session_id, user.chatroom_id, namespace=SOCKET_NAMESPACE_CHATROOM
+    )
     # TODO: Handle pairing with other users—and notifying them
     # await socket_manager.emit(
     #     "new_message", body, room=f"chatroom-{body['id']}", callback=message_received
@@ -87,23 +94,29 @@ async def handle_join(session_id, body) -> None:
         )
 
     await socket_manager.emit(
-        f"chatroom_messages",
+        f"messages",
         messages,
         to=session_id,
+        namespace=SOCKET_NAMESPACE_CHATROOM,
     )
 
 
 async def get_socket_session_user(access: DataAccess, session_id: str) -> models.User:
-    user_id = (await socket_manager.get_session(session_id))["id"]
-
+    user_id = (
+        await socket_manager.get_session(
+            session_id, namespace=SOCKET_NAMESPACE_CHATROOM
+        )
+    )["id"]
     user = access.session.query(models.User).filter_by(response_id=user_id).first()
 
     return user
 
 
-@socket_manager.on("rephrasing_response")
+@socket_manager.on("rephrasing_response", namespace=SOCKET_NAMESPACE_CHATROOM)
 async def handle_rephrasing_response(session_id, body) -> None:
-    from .. import access
+    from .. import get_data_access
+
+    access = get_data_access()
 
     user = await get_socket_session_user(access, session_id)
     if not user:
@@ -168,15 +181,15 @@ async def handle_rephrasing_response(session_id, body) -> None:
     )
 
     await socket_manager.emit(
-        f"new_message",
-        response,
-        to=f"chatroom-{chatroom_id}",
+        f"new_message", response, to=chatroom_id, namespace=SOCKET_NAMESPACE_CHATROOM
     )
 
 
-@socket_manager.on("message")
+@socket_manager.on("message", namespace=SOCKET_NAMESPACE_CHATROOM)
 async def handle_message_sent(session_id, body):
-    from .. import access
+    from .. import get_data_access
+
+    access = get_data_access()
 
     user = await get_socket_session_user(access, session_id)
     if not user:
@@ -206,7 +219,7 @@ async def handle_message_sent(session_id, body):
 
     will_attempt_rephrasings = False
     turns = []
-    if user.apply_treatment:
+    if user.receives_rephrasings:
         turn_count, user_turn_count, last_turn_counted, turns = calculate_turns(
             chatroom_messages, user.id
         )
@@ -222,44 +235,6 @@ async def handle_message_sent(session_id, body):
                 and user_turn_count % REPHRASE_EVERY_N_TURNS == 0
             )
 
-    await socket_manager.emit(
-        "rephrasings_status",
-        dict(will_attempt=will_attempt_rephrasings),
-        to=session_id,
-    )
-
-    if will_attempt_rephrasings:
-        # Give socket manager a chance to send the notification message
-        await asyncio.sleep(0.2)
-        turns = [
-            {
-                "position": "Opponent"
-                if message.user.position is UserPosition.OPPOSE
-                else "Supporter",
-                "message": (rephrasing := message.accepted_rephrasing)
-                and rephrasing.body
-                or message.body,
-            }
-            for message in last_n_turns(turns, 2)
-        ]
-        turns.append(
-            {
-                "position": "Opponent"
-                if user.position is UserPosition.OPPOSE
-                else "Supporter",
-                "message": message,
-            }
-        )
-        print()
-        print("⭐️⭐️ Prompt ⭐️⭐️")
-        print()
-        print(sr.create_prompt(turns, sr.rephrasing_specs["validate"]))
-        gpt_responses, _ = sr.collect_rephrasings(
-            sr.create_rephrasing_for_turns(turns, sr.rephrasing_specs["validate"], n=3)
-        )
-    else:
-        gpt_responses = []
-
     access.add_to_db(
         message := models.Message(
             chatroom_id=chatroom.id,
@@ -268,23 +243,64 @@ async def handle_message_sent(session_id, body):
             send_time=datetime.now(),
         )
     )
+    access.commit()
 
-    if not will_attempt_rephrasings or not gpt_responses:
+    await socket_manager.emit(
+        "rephrasings_status",
+        dict(will_attempt=will_attempt_rephrasings),
+        to=session_id,
+        namespace=SOCKET_NAMESPACE_CHATROOM,
+    )
+
+    if not will_attempt_rephrasings:
         await socket_manager.emit(
             f"new_message",
             dict(
                 user_id=user.id,
                 message=message.body,
             ),
-            to=f"chatroom-{chatroom_id}",
+            to=chatroom_id,
+            namespace=SOCKET_NAMESPACE_CHATROOM,
         )
         return
 
-    rephrasings = []
-    for response in gpt_responses:
-        rephrasing = models.Rephrasing(message_id=message.id, body=response)
-        rephrasings.append(rephrasing)
-        access.session.add(rephrasing)
+    # Give socket manager a chance to send the notification message
+    await asyncio.sleep(0.2)
+    turns = [
+        {
+            "position": "Opponent"
+            if message.user.position is UserPosition.OPPOSE
+            else "Supporter",
+            "message": (rephrasing := message.accepted_rephrasing)
+            and rephrasing.body
+            or message.body,
+        }
+        for message in last_n_turns(turns, 2)
+    ]
+    turns.append(
+        {
+            "position": "Opponent"
+            if user.position is UserPosition.OPPOSE
+            else "Supporter",
+            "message": message,
+        }
+    )
+
+    print()
+    print("⭐️⭐️ Prompt ⭐️⭐️")
+    print()
+    print(sr.create_prompt(turns, sr.rephrasing_specs["validate"]))
+
+    gpt_responses, _ = sr.collect_rephrasings(
+        sr.create_rephrasing_for_turns(turns, sr.rephrasing_specs["validate"], n=3)
+    )
+
+    rephrasings = [
+        models.Rephrasing(message_id=message.id, body=response)
+        for response in gpt_responses
+    ]
+
+    access.session.add_all(rephrasings)
     access.commit()
 
     await socket_manager.emit(
@@ -295,14 +311,17 @@ async def handle_message_sent(session_id, body):
             rephrasings={r.id: r.body for r in rephrasings},
         ),
         to=session_id,
+        namespace=SOCKET_NAMESPACE_CHATROOM,
     )
 
 
-@socket_manager.on("clear_chatroom")
+@socket_manager.on("clear", namespace=SOCKET_NAMESPACE_CHATROOM)
 async def clear_chatroom(session_id):
-    from .. import access
+    from .. import get_data_access
 
-    user = await get_socket_session_user(access, session_id)
+    access = get_data_access()
+
+    user = await get_socket_session_user(get_data_access(), session_id)
     if not user:
         return
 
@@ -315,4 +334,6 @@ async def clear_chatroom(session_id):
 
     access.commit()
 
-    await socket_manager.emit(f"clear_chatroom", to=f"chatroom-{chatroom_id}")
+    await socket_manager.emit(
+        f"clear", chatroom_id, namespace=SOCKET_NAMESPACE_CHATROOM
+    )
