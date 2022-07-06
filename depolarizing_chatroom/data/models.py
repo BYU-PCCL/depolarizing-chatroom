@@ -126,7 +126,7 @@ class User(Base):
     # 7: Talking to GPT-3, always treated with GPT-3.
     treatment = Column(Integer)
     view = Column(String(), nullable=True)
-    # waiting = db.Column(db.DateTime)
+    # TODO: Keep track of how long the respondent has been waiting for a response.
 
     # relationship (many-to-one with chatrooms, one-to-many with messages,
     # many-to-one with codes, one-to-many with responses)
