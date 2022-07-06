@@ -49,20 +49,13 @@ def get_db() -> SessionLocal:
         session.close()
 
 
-access: DataAccess = None
-
-
 @app.on_event("startup")
 async def startup_event():
-    global access
-    access = DataAccess(next(get_db()))
     TestDataAccess(access.session).initialize_chat_test()
 
 
-# TODO: This isn't very useful if we just define a global. Looks like we can't use
-#  FastAPI dependency injection with socketio—at least not yet.
 def get_data_access() -> DataAccess:
-    return access
+    return DataAccess(next(get_db()))
 
 
 def very_insecure_session_auth_we_know_the_risks(request: Request):
