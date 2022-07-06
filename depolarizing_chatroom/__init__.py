@@ -51,7 +51,7 @@ def get_db() -> SessionLocal:
 
 @app.on_event("startup")
 async def startup_event():
-    TestDataAccess(access.session).initialize_chat_test()
+    TestDataAccess(get_data_access().session).initialize_waiting_room_test()
 
 
 def get_data_access() -> DataAccess:

@@ -151,3 +151,24 @@ class TestDataAccess(DataAccess):
         support.chatroom_id = chatroom.id
 
         self.commit()
+
+    def initialize_waiting_room_test(self) -> None:
+        if (db_path := Path("chatrooms_test.sqlite3")).exists():
+            db_path.unlink()
+
+        Base.metadata.create_all(bind=engine)
+
+        oppose = models.User(
+            response_id="oppose",
+            status="chatroom",
+            treatment=5,
+            view="I oppose increased gun control."
+        )
+        support = models.User(
+            response_id="support",
+            status="chatroom",
+            treatment=1,
+            view="I support increased gun control."
+        )
+        self.add_to_db(oppose)
+        self.add_to_db(support)

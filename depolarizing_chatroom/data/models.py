@@ -107,7 +107,9 @@ class User(Base):
     chatroom_id = Column(Integer, ForeignKey("chatrooms.id"))
     code_id = Column(Integer, ForeignKey("codes.id"))
     response_id = Column(String(320), nullable=False)
-    waiting = Column(DateTime)
+    started_waiting = Column(DateTime)
+    finished_waiting = Column(DateTime)
+    waiting_session_id = Column(String)
     message_count = Column(Integer, default=0)
     status = Column(String(20), default="code")
     # Treatment key:
