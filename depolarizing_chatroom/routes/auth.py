@@ -1,7 +1,6 @@
 from typing import Optional
 
 from fastapi import Depends, HTTPException
-from fastapi.requests import Request
 from pydantic import BaseModel
 
 from .. import app, DataAccess, get_data_access, get_user_from_auth_code
@@ -32,7 +31,6 @@ def user(user: models.User = Depends(get_user_from_auth_code)) -> dict:
 
 @app.post("/login")
 def post_login(
-    request: Request,
     body: LoginBody,
     access: DataAccess = Depends(get_data_access),
 ) -> dict:
