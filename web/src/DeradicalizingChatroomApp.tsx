@@ -50,7 +50,7 @@ function DeradicalizingChatroomApp() {
 }
 
 function LoginRoute() {
-  // Get the token from the URL
+  // Get token from the URL
   const [token, setToken] = useState(
     new URLSearchParams(window.location.search).get("token")
   );
