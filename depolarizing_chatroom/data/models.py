@@ -43,7 +43,10 @@ class Rephrasing(Base):
 
     # relationship (many-to-one with messages)
     message = relationship(
-        "Message", back_populates="rephrasings", foreign_keys=message_id
+        "Message",
+        back_populates="rephrasings",
+        foreign_keys=message_id,
+        post_update=True,
     )
 
     @property
@@ -72,6 +75,7 @@ class Message(Base):
         back_populates="message",
         foreign_keys=Rephrasing.message_id,
         cascade="all, delete-orphan",
+        post_update=True,
     )
     accepted_rephrasing = relationship(
         "Rephrasing", foreign_keys=accepted_rephrasing_id
