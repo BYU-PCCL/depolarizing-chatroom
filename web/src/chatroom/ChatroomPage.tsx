@@ -50,12 +50,9 @@ function ChatroomPage() {
       return;
     }
 
-    const localSocket: Socket = socketIOClient(getEndpointUrl(""), {
+    const localSocket: Socket = socketIOClient(getEndpointUrl("chatroom"), {
       path: "/ws/socket.io",
-    });
-    console.debug("joining chatroom");
-    localSocket.emit("join_chatroom", {
-      token: getAuthCode(),
+      auth: { token: getAuthCode() },
     });
     localSocket.onAny((event: any, data: any) => console.debug(event, data));
     localSocket.on("rephrasings_status", (message: any) => {
@@ -72,7 +69,7 @@ function ChatroomPage() {
       setMessageId(message.message_id);
     });
     localSocket.on("new_message", addMessage);
-    localSocket.on("chatroom_messages", (messages: any) => {
+    localSocket.on("messages", (messages: any) => {
       if (!user?.data?.id) {
         return;
       }
@@ -83,7 +80,7 @@ function ChatroomPage() {
         }))
       );
     });
-    localSocket.on("clear_chatroom", () => {
+    localSocket.on("clear", () => {
       setMessages([]);
     });
     setSocket(localSocket);
@@ -132,7 +129,7 @@ function ChatroomPage() {
       return;
     }
 
-    socket.emit("clear_chatroom");
+    socket.emit("clear");
   }, [chatroom?.data?.id, socket]);
 
   const handleInputKeyDown = useCallback(
