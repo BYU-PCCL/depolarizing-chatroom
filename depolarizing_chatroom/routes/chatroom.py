@@ -32,6 +32,9 @@ def chatroom(
     user: models.User = Depends(get_user_from_auth_code),
     access: DataAccess = Depends(get_data_access),
 ):
+    # If user is not in a chatroom, redirect to waiting room
+    if not user.chatroom_id:
+        return {"redirect": "waiting"}
     chatroom_id = user.chatroom_id
     # get all previously sent messages in the chatroom
     messages = (
