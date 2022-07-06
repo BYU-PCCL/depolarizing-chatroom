@@ -1,7 +1,33 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import PageWidth from "../common/PageWidth";
+import { getAuthCode, getEndpointUrl } from "../api/apiUtils";
+import socketIOClient, { Socket } from "socket.io-client";
+import { useNavigate } from "react-router-dom";
 
 function WaitingRoomPage() {
+  const [socket, setSocket] = useState<Socket | undefined>();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (socket) {
+      return;
+    }
+
+    const localSocket: Socket = socketIOClient(getEndpointUrl("waiting-room"), {
+      path: "/ws/socket.io",
+      auth: { token: getAuthCode() },
+    });
+    localSocket.onAny((event: any, data: any) => console.debug(event, data));
+    localSocket.on("redirect", ({ to }: { to: string }) => {
+      if (to === "chatroom") {
+        navigate("/chatroom");
+      } else if (to === "view") {
+        navigate("/view");
+      }
+    });
+    setSocket(localSocket);
+  }, [navigate, socket]);
+
   return (
     <PageWidth>
       <div className="flex">
