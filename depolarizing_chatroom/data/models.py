@@ -92,7 +92,7 @@ class Message(Base):
 
     def __repr__(self) -> str:
         return (
-            f"{self.user}@{self.chatroom}: {self.message}"
+            f"{self.user}@{self.chatroom}: {self.body}"
             # f"{self.user}@{self.chatroom}: {self.message}\n"
             # f"{self.rephrasing}\n"
             # f"{self.trans_accepted}"
@@ -166,7 +166,7 @@ class User(Base):
         return None
 
     def __repr__(self):
-        return f"{self.username}:{self.code}"
+        return f"<User response_id={self.response_id}>"
 
 
 class Response(Base):
