@@ -107,7 +107,7 @@ function TutorialRephrasingsModal({
           body={original}
           onSend={onSendOriginal}
           colors={
-            highlightingRephrasings
+            highlightingOriginal
               ? ["green-400", "green-500", "green-600"]
               : ["black", "black", "black"]
           }
