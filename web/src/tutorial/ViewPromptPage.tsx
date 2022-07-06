@@ -1,9 +1,76 @@
 import PageWidth from "../common/PageWidth";
-import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useUser } from "../api/hooks";
+import { API_URL } from "../constants";
+import { getRequestWithBodyHeaders } from "../api/apiUtils";
+import { useMutation } from "react-query";
 
-function ViewPromptPage({ position = "more strict" }) {
+function ViewPromptPage() {
   const [viewText, setViewText] = useState("");
+  const [position, setPosition] = useState("");
+  const user = useUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user.isLoading || user.isError) {
+      return;
+    }
+
+    const treatment = user?.data?.treatment;
+
+    if (treatment === undefined || typeof treatment !== "number") {
+      return;
+    }
+
+    setPosition(treatment > 3 ? "about the same or less strict" : "more strict");
+  }, [user]);
+
+  const mutation = useMutation(async () => {
+    if (!viewText) {
+      return;
+    }
+
+    const fetchResponse = await fetch(`${API_URL}/initial-view`, {
+      method: "POST",
+      headers: getRequestWithBodyHeaders(),
+      body: JSON.stringify({ view: viewText }),
+    });
+
+    if (!fetchResponse.ok) {
+      throw new Error(fetchResponse.statusText);
+    }
+
+    return fetchResponse.json();
+  });
+
+  const handleContinueClick = useCallback(() => {
+    if (user.data === undefined) {
+      return;
+    }
+
+    mutation.mutate();
+    const treatment = user?.data?.treatment;
+
+    if (treatment === undefined || typeof treatment !== "number") {
+      return;
+    }
+
+    if ((treatment - 1) % 3 === 0) {
+      navigate("/tutorial");
+    } else {
+      navigate("/waiting");
+    }
+  }, [mutation.mutate, user.data]);
+
+  if (user.isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (user.isError) {
+    // @ts-ignore
+    return <div>Error: {user.error.message}</div>;
+  }
 
   return (
     <PageWidth>
@@ -22,18 +89,18 @@ function ViewPromptPage({ position = "more strict" }) {
         value={viewText}
         onChange={(event) => setViewText(event.target.value)}
       ></textarea>
-      <Link
+      <button
         className={
           "transition rounded-lg px-4 py-2 text-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-400 text-white mt-8 span flex gap-2" +
           (viewText.length > 0 ? "" : " opacity-50 pointer-events-none")
         }
-        to="/tutorial"
+        onClick={handleContinueClick}
       >
         <p>Continue</p>
         <span className="material-icons text-xl translate-y-[1px] -mr-1">
           arrow_forward
         </span>
-      </Link>
+      </button>
     </PageWidth>
   );
 }

@@ -17,7 +17,7 @@ const getContentTypeHeaders = (contentType = "application/json") => ({
   "Content-Type": contentType,
 });
 
-const getRequestWithBodyHeaders = (contentType?: string) => ({
+export const getRequestWithBodyHeaders = (contentType?: string) => ({
   ...getAuthHeaders(),
   ...getContentTypeHeaders(contentType),
 });
