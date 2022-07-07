@@ -36,7 +36,7 @@ function TestSignupPage() {
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       mutation.mutate();
-      navigate("/chatroom");
+      navigate("/intro");
     },
     [mutation, navigate]
   );
