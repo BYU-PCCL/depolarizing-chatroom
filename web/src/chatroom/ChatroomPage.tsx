@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import PageWidth from "../common/PageWidth";
 import socketIOClient, { Socket } from "socket.io-client";
 import { useChatroom, useUser } from "../api/hooks";
-import { getAuthCode, getEndpointUrl } from "../api/apiUtils";
+import { BASE_URL, getAuthCode, getEndpointUrl } from "../api/apiUtils";
 import { Message } from "./types";
 import RephrasingsModal from "./RephrasingsModal";
 import ChatMessageList from "../common/ChatMessageList";
@@ -50,10 +50,16 @@ function ChatroomPage() {
       return;
     }
 
-    const localSocket: Socket = socketIOClient(getEndpointUrl("chatroom"), {
-      path: "/ws/socket.io",
-      auth: { token: getAuthCode() },
-    });
+    const localSocket: Socket = socketIOClient(
+      getEndpointUrl("chatroom").replace("/api", ""),
+      {
+        // Unbelievable hack
+        path: BASE_URL.endsWith("/api/")
+          ? "/api/ws/socket.io"
+          : "/ws/socket.io",
+        auth: { token: getAuthCode() },
+      }
+    );
     localSocket.onAny((event: any, data: any) => console.debug(event, data));
     localSocket.on("rephrasings_status", (message: any) => {
       setComposingMessage((composingMessage) => {

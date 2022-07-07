@@ -5,9 +5,8 @@ import ChatroomPage from "./chatroom/ChatroomPage";
 import NoAuthPage from "./NoAuthPage";
 import WaitingRoomPage from "./tutorial/WaitingRoomPage";
 import { useMutation, QueryClientProvider, QueryClient } from "react-query";
-import { API_URL } from "./constants";
 import TestSignupPage from "./TestSignupPage";
-import { setAuthCode } from "./api/apiUtils";
+import { getEndpointUrl, setAuthCode } from "./api/apiUtils";
 import TutorialPage from "./tutorial/TutorialPage";
 import IntroPage from "./tutorial/IntroPage";
 import ViewPromptPage from "./tutorial/ViewPromptPage";
@@ -61,7 +60,7 @@ function LoginRoute() {
       return;
     }
 
-    const fetchResponse = await fetch(`${API_URL}/login`, {
+    const fetchResponse = await fetch(getEndpointUrl("login"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -119,7 +118,7 @@ function StartRoute() {
       return;
     }
 
-    const fetchResponse = await fetch(`${API_URL}/signup`, {
+    const fetchResponse = await fetch(getEndpointUrl("signup"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

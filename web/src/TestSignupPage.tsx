@@ -1,7 +1,6 @@
 import PageWidth from "./common/PageWidth";
 import { useCallback, useState } from "react";
-import { API_URL } from "./constants";
-import { setAuthCode } from "./api/apiUtils";
+import { getEndpointUrl, setAuthCode } from "./api/apiUtils";
 import { useMutation } from "react-query";
 import { useNavigate } from "react-router-dom";
 
@@ -17,7 +16,7 @@ function TestSignupPage() {
       return;
     }
 
-    const fetchResponse = await fetch(`${API_URL}/test-signup`, {
+    const fetchResponse = await fetch(getEndpointUrl("test-signup"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

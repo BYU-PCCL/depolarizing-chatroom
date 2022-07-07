@@ -1,5 +1,5 @@
-const BASE_URL: string =
-  process.env.REACT_APP_API_BASE_URL || "http://localhost:8000/";
+export const BASE_URL: string =
+  process.env.REACT_APP_API_URL || "http://localhost:8000/";
 
 const AUTH_CODE_STORAGE_KEY = "deradAuth";
 

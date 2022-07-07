@@ -2,8 +2,7 @@ import PageWidth from "../common/PageWidth";
 import { useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { useUser } from "../api/hooks";
-import { API_URL } from "../constants";
-import { getRequestWithBodyHeaders } from "../api/apiUtils";
+import { getEndpointUrl, getRequestWithBodyHeaders } from "../api/apiUtils";
 import { useMutation } from "react-query";
 
 function ViewPromptPage() {
@@ -31,7 +30,7 @@ function ViewPromptPage() {
       return;
     }
 
-    const fetchResponse = await fetch(`${API_URL}/initial-view`, {
+    const fetchResponse = await fetch(getEndpointUrl("initial-view"), {
       method: "POST",
       headers: getRequestWithBodyHeaders(),
       body: JSON.stringify({ view: viewText }),

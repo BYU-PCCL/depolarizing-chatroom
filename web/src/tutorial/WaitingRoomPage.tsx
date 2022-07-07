@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import PageWidth from "../common/PageWidth";
-import { getAuthCode, getEndpointUrl } from "../api/apiUtils";
+import { BASE_URL, getAuthCode, getEndpointUrl } from "../api/apiUtils";
 import socketIOClient, { Socket } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
 
@@ -13,10 +13,15 @@ function WaitingRoomPage() {
       return;
     }
 
-    const localSocket: Socket = socketIOClient(getEndpointUrl("waiting-room"), {
-      path: "/ws/socket.io",
-      auth: { token: getAuthCode() },
-    });
+    const localSocket: Socket = socketIOClient(
+      getEndpointUrl("waiting-room").replace("/api", ""),
+      {
+        path: BASE_URL.endsWith("/api/")
+          ? "/api/ws/socket.io"
+          : "/ws/socket.io",
+        auth: { token: getAuthCode() },
+      }
+    );
     localSocket.onAny((event: any, data: any) => console.debug(event, data));
     localSocket.on("redirect", ({ to }: { to: string }) => {
       if (to === "chatroom") {
