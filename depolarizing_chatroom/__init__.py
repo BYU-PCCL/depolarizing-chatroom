@@ -55,15 +55,7 @@ def get_db() -> SessionLocal:
 
 @app.on_event("startup")
 async def startup_event():
-    global executor
-    executor = ThreadPoolExecutor()
     TestDataAccess(get_data_access().session).initialize_waiting_room_test()
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    if isinstance(executor, ThreadPoolExecutor):
-        executor.shutdown()
 
 
 def get_data_access() -> DataAccess:
