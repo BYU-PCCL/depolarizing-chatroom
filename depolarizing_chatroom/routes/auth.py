@@ -26,7 +26,7 @@ class TestSignupBody(BaseModel):
 
 @app.get("/user")
 def user(user: models.User = Depends(get_user_from_auth_code)) -> dict:
-    return user
+    return {**user.__dict__, "post_survey_url": user.post_survey_url}
 
 
 @app.post("/login")
@@ -67,7 +67,9 @@ def post_test_signup(
     # used in the matching process, which we skip by explicitly pairing with another
     # user.
     treatment = (
-        1 + (3 if position.OPPOSE else 0) + (1 if not body.applyTreatment else 0)
+        1
+        + (3 if position is UserPosition.OPPOSE else 0)
+        + (1 if not body.applyTreatment else 0)
     )
 
     if not (signup_user := access.process_signup(body.username, treatment)):

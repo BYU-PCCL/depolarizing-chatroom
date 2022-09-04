@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from . import models
 from .database import Base, engine
-from .models import UserPosition
 
 
 class DataAccess:

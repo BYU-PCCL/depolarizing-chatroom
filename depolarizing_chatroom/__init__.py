@@ -1,5 +1,6 @@
 import os
 from os import path
+from typing import Dict
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -13,6 +14,7 @@ from fastapi.security import APIKeyHeader
 from .data import models
 from .data.crud import DataAccess, TestDataAccess
 from .data.database import engine, SessionLocal
+from .data.template import load_templates_from_directory, TemplateManager
 from .exceptions import AuthException
 from .util import format_dt
 
@@ -36,6 +38,8 @@ app.add_middleware(
 
 socket_manager = SocketManager(app=app, cors_allowed_origins=[])
 
+templates = load_templates_from_directory(os.getenv("TEMPLATES_DIR"))
+
 
 _API_KEY_NAME = "X-AUTH-CODE"
 _api_key_header = APIKeyHeader(name=_API_KEY_NAME, auto_error=False)
@@ -51,11 +55,23 @@ def get_db() -> SessionLocal:
 
 @app.on_event("startup")
 async def startup_event():
+    global executor
+    executor = ThreadPoolExecutor()
     TestDataAccess(get_data_access().session).initialize_waiting_room_test()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    if isinstance(executor, ThreadPoolExecutor):
+        executor.shutdown()
 
 
 def get_data_access() -> DataAccess:
     return DataAccess(next(get_db()))
+
+
+def get_templates() -> Dict[str, TemplateManager]:
+    return templates
 
 
 def very_insecure_session_auth_we_know_the_risks(request: Request):

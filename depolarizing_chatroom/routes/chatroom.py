@@ -1,4 +1,5 @@
 import asyncio
+import random
 from datetime import datetime
 
 from fastapi import Depends
@@ -20,6 +21,10 @@ from ..constants import (
 )
 from ..data import models
 from ..data.models import UserPosition
+from ..data.template import (
+    HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork,
+)
+from ..suggest_rephrasings import STRATEGY_LOGIT_BIASES, BASE_LOGIT_BIASES
 from ..util import calculate_turns, last_n_turns
 
 
@@ -115,18 +120,33 @@ async def get_socket_session_user(access: DataAccess, session_id: str) -> models
     return user
 
 
+async def redirect_to_waiting(session_id) -> None:
+    await socket_manager.emit(
+        "redirect",
+        {"to": "waiting"},
+        to=session_id,
+        namespace=SOCKET_NAMESPACE_CHATROOM,
+    )
+
+
 @socket_manager.on("rephrasing_response", namespace=SOCKET_NAMESPACE_CHATROOM)
 async def handle_rephrasing_response(session_id, body) -> None:
     from .. import get_data_access
 
     access = get_data_access()
 
-    user = await get_socket_session_user(access, session_id)
-    if not user:
+    try:
+        user = await get_socket_session_user(access, session_id)
+    except KeyError:
+        await redirect_to_waiting(session_id)
         return
+
     user_id = user.id
 
     chatroom_id = user.chatroom_id
+    if not chatroom_id:
+        await redirect_to_waiting(session_id)
+        return
 
     message_id = body["message_id"]
     message_body = body["body"]
@@ -188,20 +208,61 @@ async def handle_rephrasing_response(session_id, body) -> None:
     )
 
 
-@socket_manager.on("message", namespace=SOCKET_NAMESPACE_CHATROOM)
-async def handle_message_sent(session_id, body):
+@socket_manager.on("typing", namespace=SOCKET_NAMESPACE_CHATROOM)
+async def handle_typing(session_id):
     from .. import get_data_access
 
     access = get_data_access()
 
-    user = await get_socket_session_user(access, session_id)
-    if not user:
+    try:
+        user = await get_socket_session_user(access, session_id)
+    except KeyError:
+        await redirect_to_waiting(session_id)
+        return
+
+    chatroom = user.chatroom
+    if not chatroom:
+        await redirect_to_waiting(session_id)
+        return
+
+    room_ids = set(
+        socket_manager._sio.manager.rooms[SOCKET_NAMESPACE_CHATROOM][chatroom.id].keys()
+    )
+    # Get other user's session ID
+    other_session_id = next(iter(room_ids - {session_id}))
+
+    await socket_manager.emit(
+        "typing",
+        to=other_session_id,
+        namespace=SOCKET_NAMESPACE_CHATROOM,
+    )
+
+
+def generate_rephrasings():
+    pass
+
+
+@socket_manager.on("message", namespace=SOCKET_NAMESPACE_CHATROOM)
+async def handle_message_sent(session_id, body):
+    from .. import get_data_access
+    from .. import get_templates
+
+    access = get_data_access()
+    templates = get_templates()
+
+    try:
+        user = await get_socket_session_user(access, session_id)
+    except KeyError:
+        await redirect_to_waiting(session_id)
         return
 
     chatroom_id = user.chatroom_id
     chatroom = (
         access.session.query(models.Chatroom).filter_by(id=user.chatroom_id).first()
     )
+    if not chatroom:
+        await redirect_to_waiting(session_id)
+        return
 
     message = body["body"]
 
@@ -221,11 +282,20 @@ async def handle_message_sent(session_id, body):
     # before the chat starts.
 
     will_attempt_rephrasings = False
-    turns = []
+    user_position = "oppose" if user.position is UserPosition.OPPOSE else "support"
+    turn_count, user_turn_count, last_turn_counted, turns = calculate_turns(
+        [
+            {
+                "position": "oppose"
+                if message.user.position is UserPosition.OPPOSE
+                else "support",
+                "body": message.selected_body,
+            }
+            for message in chatroom_messages
+        ],
+        user_position,
+    )
     if user.receives_rephrasings:
-        turn_count, user_turn_count, last_turn_counted, turns = calculate_turns(
-            chatroom_messages, user.id
-        )
         message_is_min_length = len(message.split()) >= MIN_COUNTED_MESSAGE_WORD_COUNT
         new_turn = chatroom_messages and user.id != chatroom_messages[-1].sender_id
 
@@ -234,7 +304,7 @@ async def handle_message_sent(session_id, body):
         if message_is_min_length and (new_turn or not last_turn_counted):
             user_turn_count += 1
             will_attempt_rephrasings = (
-                user_turn_count > MIN_REPHRASING_TURNS
+                turn_count >= MIN_REPHRASING_TURNS
                 and user_turn_count % REPHRASE_EVERY_N_TURNS == 0
             )
 
@@ -269,49 +339,61 @@ async def handle_message_sent(session_id, body):
 
     # Give socket manager a chance to send the notification message
     await asyncio.sleep(0.2)
-    turns = [
-        {
-            "position": "Opponent"
-            if message.user.position is UserPosition.OPPOSE
-            else "Supporter",
-            "message": (rephrasing := message.accepted_rephrasing)
-            and rephrasing.body
-            or message.body,
-        }
-        for message in last_n_turns(turns, 2)
-    ]
-    turns.append(
-        {
-            "position": "Opponent"
-            if user.position is UserPosition.OPPOSE
-            else "Supporter",
-            "message": message,
-        }
+
+    last_turn_is_user = (
+        user_turn_count > 0 and turns[-1][0]["position"] == user_position
     )
 
-    print()
-    print("⭐️⭐️ Prompt ⭐️⭐️")
-    print()
-    print(sr.create_prompt(turns, sr.rephrasing_specs["validate"]))
+    # 10 doesn't mean anything, it's just a number high enough that I imagine we'd never
+    # construct a template that uses that many turns.
+    template_turns = last_n_turns(turns, 10)
 
-    gpt_responses, _ = sr.collect_rephrasings(
-        sr.create_rephrasing_for_turns(turns, sr.rephrasing_specs["validate"], n=3)
-    )
+    template_rephrasing_message = {
+        "position": "oppose" if user.position is UserPosition.OPPOSE else "support",
+        "body": message.selected_body,
+    }
 
-    rephrasings = [
-        models.Rephrasing(message_id=message.id, body=response)
-        for response in gpt_responses
-    ]
+    if last_turn_is_user:
+        template_turns[-1].append(template_rephrasing_message)
+    else:
+        template_turns.append([template_rephrasing_message])
+
+    # print()
+    # print("⭐️⭐️ Prompt ⭐️⭐️")
+    # print()
+    # print(sr.create_prompt(turns, sr.rephrasing_specs["validate"]))
+
+    rephrasings = []
+    for strategy, template in templates.items():
+        prompt = template.render(
+            HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork(
+                template_turns
+            )
+        )
+        (response,), _ = sr.collect_rephrasings(
+            sr.rephrasings_generator(
+                prompt,
+                logit_bias={
+                    **(STRATEGY_LOGIT_BIASES.get(strategy, {})),
+                    **BASE_LOGIT_BIASES,
+                },
+                n=1,
+            )
+        )
+        rephrasings.append(models.Rephrasing(message_id=message.id, body=response))
 
     access.session.add_all(rephrasings)
     access.commit()
+
+    # We want to present rephrasings in a random order
+    random.shuffle(rephrasings)
 
     await socket_manager.emit(
         "rephrasings_response",
         dict(
             message_id=message.id,
             body=message.body,
-            rephrasings={r.id: r.body for r in rephrasings},
+            rephrasings=[{"id": r.id, "body": r.body} for r in rephrasings],
         ),
         to=session_id,
         namespace=SOCKET_NAMESPACE_CHATROOM,
@@ -324,14 +406,24 @@ async def clear_chatroom(session_id):
 
     access = get_data_access()
 
-    user = await get_socket_session_user(get_data_access(), session_id)
-    if not user:
+    try:
+        user = await get_socket_session_user(access, session_id)
+    except KeyError:
+        socket_manager.emit(
+            "redirect",
+            {"to": "waiting"},
+            to=session_id,
+            namespace=SOCKET_NAMESPACE_CHATROOM,
+        )
         return
 
     # get chatroom
     chatroom_id = user.chatroom_id
 
     chatroom = access.session.query(models.Chatroom).filter_by(id=chatroom_id).first()
+    if not chatroom:
+        await redirect_to_waiting(session_id)
+        return
     for message in chatroom.messages:
         access.session.delete(message)
 

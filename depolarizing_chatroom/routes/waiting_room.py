@@ -139,7 +139,10 @@ async def handle_disconnect(session_id) -> None:
 
     access = get_data_access()
 
-    user = await get_socket_session_user(access, session_id)
+    try:
+        user = await get_socket_session_user(access, session_id)
+    except KeyError:
+        return
     if not user:
         return
 

@@ -9,11 +9,11 @@ from sqlalchemy import (
     ForeignKey,
     Boolean,
     DateTime,
-    Enum,
 )
 from sqlalchemy.orm import relationship
 
 from .database import Base
+from ..constants import POST_SURVEY_URL
 
 
 class Chatroom(Base):
@@ -150,6 +150,10 @@ class User(Base):
         return (self.treatment - 1) % 3 == 0
 
     @property
+    def in_untreated_conversation(self) -> bool:
+        return self.treatment % 3 == 0
+
+    @property
     def match_with(self) -> int:
         if self.treatment == 1:
             return 5
@@ -164,6 +168,12 @@ class User(Base):
         if self.treatment == 6:
             return 3
         return None
+
+    @property
+    def post_survey_url(self) -> str:
+        return POST_SURVEY_URL.format(
+            link_id=self.response_id, treatment=self.treatment
+        )
 
     def __repr__(self):
         return f"<User response_id={self.response_id}>"
