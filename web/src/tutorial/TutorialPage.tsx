@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import PageWidth from "../common/PageWidth";
-import { useChatroom, useUser } from "../api/hooks";
 import TutorialRephrasingsModal from "./TutorialRephrasingsModal";
 import ChatMessageList from "../common/ChatMessageList";
 import { Link } from "react-router-dom";
+import TypingIndicatorBubble from "../common/TypingIndicatorBubble";
 
 interface TutorialMessage {
   type: string;
@@ -23,7 +23,7 @@ interface Message {
 const TUTORIAL_MESSAGES: TutorialMessage[] = [
   {
     type: "message",
-    body: "Welcome to our chatroom! Part of the goal in these discussions is to find out if a chatroom tool can make suggestions to help these kinds of discussions be more productive.",
+    body: "Welcome to our chatroom! Part of the goal in these discussions is to find out if a chatroom tool can help make conversations more productive.",
     delay: 4000,
   },
   {
@@ -43,12 +43,7 @@ const TUTORIAL_MESSAGES: TutorialMessage[] = [
   },
   {
     type: "ex-message",
-    body: "I'm not actually your chat partner (or a person at all), but if I were, I would tell you what I think about this topic.",
-    delay: 3000,
-  },
-  {
-    type: "ex-message",
-    body: "I'm interested to see how this conversation goes!",
+    body: "I'm not actually your chat partner (or a person at all), but if I were, I would tell you what I think. For example, I could say:",
     delay: 3000,
   },
   {
@@ -83,7 +78,7 @@ const TUTORIAL_MESSAGES: TutorialMessage[] = [
   {
     type: "highlight-original",
     visible: true,
-    delay: 5000,
+    delay: 3000,
   },
   {
     type: "highlight-original",
@@ -96,7 +91,7 @@ const TUTORIAL_MESSAGES: TutorialMessage[] = [
   {
     type: "highlight-rephrasings",
     visible: true,
-    delay: 4000,
+    delay: 3000,
   },
   {
     type: "message",
@@ -109,7 +104,7 @@ const TUTORIAL_MESSAGES: TutorialMessage[] = [
   {
     type: "highlight-rephrasings",
     visible: true,
-    delay: 3000,
+    delay: 2000,
   },
   {
     type: "highlight-original",
@@ -131,7 +126,7 @@ const TUTORIAL_MESSAGES: TutorialMessage[] = [
   },
   {
     type: "message",
-    body: "Now that you've practiced, click on the button below to be paired with a chat partner. Please make sure to stay online as we find someone who disagrees with you on gun control.",
+    body: "Now that you've practiced, click 'find a chat' below to be paired with a chat partner. Please make sure to stay online as we find someone who disagrees with you on gun control.",
     delay: 2000,
   },
   {
@@ -163,11 +158,20 @@ function TutorialPage() {
   const [highlightingOriginal, setHighlightingOriginal] = useState(false);
   const [highlightingRephrasings, setHighlightingRephrasings] = useState(false);
   const [showingPairButton, setShowingPairButton] = useState(false);
+  const [showingTypingBubble, setShowingTypingBubble] = useState(false);
+  // This is such a terrible way to keep going about things. I apologize to you,
+  // reader, for what this code has become .
+  const [typingBubbleMessageType, setTypingBubbleMessageType] = useState<
+    "tutorial" | "example"
+  >("example");
+
   const chatMessagesElement = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const message = TUTORIAL_MESSAGES[tutorialMessageIndex];
     let isExampleMessage: boolean;
+
+    setShowingTypingBubble(false);
 
     if (
       message.type === "message" ||
@@ -203,15 +207,31 @@ function TutorialPage() {
       setEnableRephrasingsResponse(true);
     }
 
+    let typingBubbleTimeout: NodeJS.Timeout | undefined;
+    if (tutorialMessageIndex < TUTORIAL_MESSAGES.length - 2) {
+      const nextMessage = TUTORIAL_MESSAGES[tutorialMessageIndex + 1];
+      typingBubbleTimeout = setTimeout(() => {
+        if (nextMessage.type === "message") {
+          setTypingBubbleMessageType("tutorial");
+        } else if (nextMessage.type === "ex-message") {
+          setTypingBubbleMessageType("example");
+        }
+        setShowingTypingBubble(true);
+      }, 500);
+    }
+
     if (tutorialMessageIndex >= TUTORIAL_MESSAGES.length - 1) {
-      return;
+      return () => typingBubbleTimeout && clearTimeout(typingBubbleTimeout);
     }
 
     const timer = setTimeout(() => {
       setTutorialMessageIndex((index) => index + 1);
     }, message.delay ?? 0);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      typingBubbleTimeout && clearTimeout(typingBubbleTimeout);
+    };
   }, [showingRephrasingsModal, tutorialMessageIndex]);
 
   const sendTutorialMessage = useCallback(() => {
@@ -268,22 +288,39 @@ function TutorialPage() {
         Tutorial
       </span>
       <h1 className="text-4xl mb-10">Learn how to use our chatroom</h1>
-      <div className="flex p-8 border border-green-600 rounded-xl flex-1 flex-col w-full bg-white bg-[#f8fefc]">
-        <div
-          ref={chatMessagesElement}
-          className="flex-1 basis-0 overflow-scroll py-8 -my-8 px-7 -mx-7 mb-0"
-        >
-          <ChatMessageList messages={tutorialMessages} showTimes={false} />
-          {showingPairButton && (
-            <div className="mt-6">
-              <Link
-                className="transition rounded-lg px-4 py-3 text-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-400 text-white"
-                to="/waiting"
-              >
-                Find a chat
-              </Link>
-            </div>
-          )}
+      <div className="flex p-8 flex-col h-full border border-green-600 rounded-xl w-full bg-[#f8fefc]">
+        <div className="flex rounded-xl flex-1 flex-col w-full h-full relative">
+          <div
+            ref={chatMessagesElement}
+            className="flex-1 basis-0 overflow-scroll py-9 -my-8 px-7 -mx-7 mb-0"
+          >
+            <ChatMessageList messages={tutorialMessages} showTimes={false} />
+            {showingPairButton && (
+              <div className="mt-6 mb-0 flex justify-center">
+                <Link
+                  className="transition rounded-lg px-4 py-3 text-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-400 text-white"
+                  to="/waiting"
+                >
+                  Find a chat
+                </Link>
+              </div>
+            )}
+          </div>
+          <div className="absolute bottom-2.5">
+            <TypingIndicatorBubble
+              fill={
+                typingBubbleMessageType === "tutorial"
+                  ? "green-800"
+                  : "gray-500"
+              }
+              background={
+                typingBubbleMessageType === "tutorial"
+                  ? "green-200"
+                  : "gray-200"
+              }
+              visible={showingTypingBubble && !showingRephrasingsModal}
+            />
+          </div>
         </div>
         <div className="border-t border-green-200 pt-5 w-full flex gap-4">
           <input
@@ -309,6 +346,7 @@ function TutorialPage() {
       </div>
       <TutorialRephrasingsModal
         isOpen={showingRephrasingsModal}
+        showingTypingBubble={showingTypingBubble && showingRephrasingsModal}
         original={exampleResponse}
         enabled={enableRephrasingsResponse}
         rephrasings={EXAMPLE_REPRHASINGS}

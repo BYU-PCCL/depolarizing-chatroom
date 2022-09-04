@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import PageWidth from "../common/PageWidth";
 import socketIOClient, { Socket } from "socket.io-client";
 import { useChatroom, useUser } from "../api/hooks";
@@ -7,6 +7,8 @@ import { Message } from "./types";
 import RephrasingsModal from "./RephrasingsModal";
 import ChatMessageList from "../common/ChatMessageList";
 import LeaveModal from "./LeaveModal";
+import TypingIndicatorBubble from "../common/TypingIndicatorBubble";
+import { useNavigate } from "react-router-dom";
 
 function ChatroomPage() {
   const user = useUser();
@@ -16,10 +18,57 @@ function ChatroomPage() {
   const [showingRephrasingsModal, setShowingRephrasingsModal] = useState(false);
   const [showingLeaveModal, setShowingLeaveModal] = useState(false);
   const [originalMessage, setOriginalMessage] = useState("");
-  const [rephrasings, setRephrasings] = useState<Record<number, string>>({});
+  const [rephrasings, setRephrasings] = useState<
+    { id: number; body: string }[]
+  >([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageId, setMessageId] = useState<string | undefined>(undefined);
-  const showTimes = false;
+  const [limitReached, setLimitReached] = useState<boolean>(false);
+  const [showingTypingBubble, setShowingTypingBubble] = useState(false);
+  const navigate = useNavigate();
+
+  const typingIndicatorScrim = useRef<HTMLDivElement>(null);
+  const chatMessagesElement = useRef<HTMLDivElement>(null);
+
+  const typingBubbleTimeoutRef = useRef<NodeJS.Timeout | undefined>();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>();
+  const rephrasingsModalTypingIntervalRef = useRef<
+    NodeJS.Timeout | undefined
+  >();
+  const lastTypingTimeRef = useRef<number>(0);
+
+  const chatMessagesScrollListener = useCallback(() => {
+    if (!chatMessagesElement.current || !typingIndicatorScrim.current) {
+      return;
+    }
+
+    // Get distance from current scroll position to bottom, taking into account
+    // offset
+    const distanceFromBottom =
+      chatMessagesElement.current.scrollHeight -
+      chatMessagesElement.current.scrollTop -
+      chatMessagesElement.current.offsetHeight;
+
+    const scaleY = 1 + Math.min(1, distanceFromBottom / 100) * 2;
+    typingIndicatorScrim.current.style.transform = `scaleY(${scaleY})`;
+  }, []);
+
+  useEffect(() => {
+    if (!typingIndicatorScrim.current || !chatMessagesElement.current) {
+      return;
+    }
+
+    chatMessagesElement.current.addEventListener(
+      "scroll",
+      chatMessagesScrollListener
+    );
+
+    const elementRef = chatMessagesElement.current;
+
+    return () => {
+      elementRef.removeEventListener("scroll", chatMessagesScrollListener);
+    };
+  }, [chatMessagesScrollListener]);
 
   const addMessage = useCallback(
     (message: any) => {
@@ -27,6 +76,7 @@ function ChatroomPage() {
         return;
       }
 
+      setShowingTypingBubble(false);
       setMessages((messages) => [
         ...messages,
         {
@@ -38,6 +88,21 @@ function ChatroomPage() {
     },
     [user]
   );
+
+  const showTypingBubble = useCallback(() => {
+    setShowingTypingBubble(true);
+    if (typingBubbleTimeoutRef.current) {
+      clearTimeout(typingBubbleTimeoutRef.current);
+    }
+    const typingBubbleTimeout = setTimeout(() => {
+      setShowingTypingBubble(false);
+    }, 1200);
+    typingBubbleTimeoutRef.current = typingBubbleTimeout;
+    return () => {
+      clearTimeout(typingBubbleTimeout);
+      setShowingTypingBubble(false);
+    };
+  }, []);
 
   useEffect(() => {
     if (
@@ -61,6 +126,9 @@ function ChatroomPage() {
       }
     );
     localSocket.onAny((event: any, data: any) => console.debug(event, data));
+    localSocket.on("min_limit_reached", () => {
+      setLimitReached(true);
+    });
     localSocket.on("rephrasings_status", (message: any) => {
       setComposingMessage((composingMessage) => {
         if (message.will_attempt) {
@@ -75,6 +143,7 @@ function ChatroomPage() {
       setMessageId(message.message_id);
     });
     localSocket.on("new_message", addMessage);
+    localSocket.on("typing", showTypingBubble);
     localSocket.on("messages", (messages: any) => {
       if (!user?.data?.id) {
         return;
@@ -89,8 +158,27 @@ function ChatroomPage() {
     localSocket.on("clear", () => {
       setMessages([]);
     });
+    localSocket.on("redirect", ({ to }: { to: string }) => {
+      if (to === "waiting") {
+        navigate("/waiting");
+      }
+    });
     setSocket(localSocket);
   }, [addMessage, chatroom, user, socket]);
+
+  useEffect(() => {
+    if (rephrasingsModalTypingIntervalRef.current) {
+      clearInterval(rephrasingsModalTypingIntervalRef.current);
+    }
+
+    if (showingRephrasingsModal) {
+      rephrasingsModalTypingIntervalRef.current = setInterval(() => {
+        if (socket) {
+          socket.emit("typing");
+        }
+      }, 500);
+    }
+  }, [showingRephrasingsModal, socket]);
 
   const sendMessage = useCallback(() => {
     // @ts-ignore
@@ -116,13 +204,13 @@ function ChatroomPage() {
         message_id: messageId,
         rephrasing_id:
           rephrasingIndex !== undefined
-            ? Object.keys(rephrasings)[rephrasingIndex]
+            ? rephrasings[rephrasingIndex].id
             : undefined,
         body,
       });
 
       setShowingRephrasingsModal(false);
-      setRephrasings({});
+      setRephrasings([]);
       setOriginalMessage("");
       setMessageId(undefined);
     },
@@ -148,6 +236,54 @@ function ChatroomPage() {
     [sendMessage]
   );
 
+  const handleComposeChange = useCallback(
+    (value: string) => {
+      setComposingMessage(value);
+
+      if (!socket) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now > lastTypingTimeRef.current + 800) {
+        lastTypingTimeRef.current = now;
+        socket.emit("typing");
+        return;
+      }
+      const timeUntilNextTyping = lastTypingTimeRef.current + 800 - now;
+
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      const typingTimeout = setTimeout(() => {
+        socket.emit("typing");
+      }, timeUntilNextTyping);
+
+      typingTimeoutRef.current = typingTimeout;
+
+      return () => clearTimeout(typingTimeout);
+    },
+    [socket]
+  );
+
+  const handleLeave = useCallback(() => {
+    if (limitReached) {
+      // TODO: Handle actually leaving
+    } else {
+      setShowingLeaveModal(true);
+    }
+  }, [limitReached]);
+
+  useEffect(() => {
+    if (chatMessagesElement.current) {
+      chatMessagesElement.current.scrollTo({
+        top: chatMessagesElement.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages]);
+
   if (user.isLoading || chatroom.isLoading) {
     return <div>Loading...</div>;
   }
@@ -166,9 +302,10 @@ function ChatroomPage() {
 
   return (
     <PageWidth>
-      <div className="mb-6 sm:mb-10 w-full">
-        <div className="mb-4 w-full flex flex-wrap justify-between items-center gap-4">
-          <h1 className="text-4xl">{prompt}</h1>
+      <div className="mb-4 w-full">
+        <div className="mb-2 sm:mb-10 w-full flex flex-wrap justify-between items-center gap-4">
+          {/*<h1 className="text-4xl">{prompt}</h1>*/}
+          <h1 className="text-4xl">Gun Control in America: More or Less?</h1>
           <div className="flex gap-3">
             <button
               className="transition bg-gray-300 hover:bg-gray-400 active:bg-gray-500 text-black font-bold py-2 px-4 rounded"
@@ -177,23 +314,52 @@ function ChatroomPage() {
               Restart
             </button>
             <button
-              className="transition bg-gray-300 hover:bg-gray-400 active:bg-gray-500 text-black font-bold py-2 px-4 rounded"
-              onClick={() => setShowingLeaveModal(true)}
+              className={
+                "transition bg-gray-300 hover:bg-gray-400 active:bg-gray-500 text-black font-bold py-2 px-4 rounded" +
+                (limitReached
+                  ? " bg-green-300 hover:bg-green-400 active:bg-green-500"
+                  : " bg-gray-300 hover:bg-gray-400 active:bg-red-500")
+              }
+              onClick={handleLeave}
             >
-              Leave
+              {limitReached ? "Finish" : "Leave"}
             </button>
           </div>
         </div>
+        {limitReached && (
+          <div className="flex flex-col gap-2 p-3 bg-green-200 rounded-lg mt-4 sm:-mt-6">
+            <p>
+              You’ve now talked with your partner long enough to move on to the
+              final survey. When you would like to end your conversation and go
+              to that survey, click <b>finish</b>. You are also welcome to
+              continue talking with your partner.
+            </p>
+          </div>
+        )}
       </div>
       <div className="flex p-8 border border-gray-300 rounded-xl flex-1 flex-col w-full bg-white">
-        <div className="flex-1 basis-0 overflow-scroll py-8 -my-8 px-7 -mx-7 mb-0">
-          <ChatMessageList messages={messages} showTimes={false} />
+        <div className="flex rounded-xl flex-1 flex-col w-full h-full relative">
+          <div
+            className="flex-1 basis-0 overflow-scroll py-9 -my-8 px-7 -mx-7 mb-0"
+            ref={chatMessagesElement}
+          >
+            <ChatMessageList messages={messages} showTimes={false} />
+          </div>
+          <div className="absolute bottom-0 pointer-events-none w-full">
+            <div
+              className="w-full bg-gradient-to-t from-white w-full h-full absolute bottom-0 origin-bottom"
+              ref={typingIndicatorScrim}
+            ></div>
+            <div className="mb-2.5">
+              <TypingIndicatorBubble visible={showingTypingBubble} />
+            </div>
+          </div>
         </div>
         <div className="border-t pt-5 w-full flex gap-4">
           <input
             className="border border-gray-300 rounded-md flex-1 px-3"
             value={composingMessage}
-            onChange={(event) => setComposingMessage(event.target.value)}
+            onChange={(event) => handleComposeChange(event.target.value)}
             onKeyDown={handleInputKeyDown}
             placeholder="Type a message"
           ></input>
@@ -222,7 +388,7 @@ function ChatroomPage() {
       <RephrasingsModal
         isOpen={showingRephrasingsModal}
         original={originalMessage}
-        rephrasings={Object.values(rephrasings)}
+        rephrasings={rephrasings.map((rephrasing) => rephrasing.body)}
         onSendOriginal={sendRephrasingResponse}
         onSendRephrasing={sendRephrasingResponse}
       />

@@ -10,7 +10,7 @@ const customModalStyles = {
     bottom: "auto",
     marginRight: "-50%",
     transform: "translate(-50%, -50%)",
-    width: "500px",
+    width: "min(700px, 90vw)",
     borderRadius: "10px",
   },
 };

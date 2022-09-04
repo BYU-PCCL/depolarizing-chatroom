@@ -22,7 +22,11 @@ function ChatMessageList({
   }, [messages]);
 
   return (
-    <div className="w-full flex flex-col overflow-scroll" ref={scrollElement}>
+    <div
+      className="w-full flex flex-col overflow-scroll"
+      ref={scrollElement}
+      data-test-id="chat-messages"
+    >
       {messages.map((message, index) => (
         <ChatMessage
           key={index}

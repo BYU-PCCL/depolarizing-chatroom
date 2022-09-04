@@ -43,6 +43,7 @@ function DeradicalizingChatroomApp() {
         <Route path="/noauth" element={<NoAuthPage />} />
         <Route path="/test-signup" element={<TestSignupPage />} />
         <Route path="/" element={<LoginRoute />} />
+        <Route path="/start" element={<StartRoute />} />
       </Routes>
     </QueryClientProvider>
   );
@@ -96,7 +97,7 @@ function LoginRoute() {
     <>
       {mutation.isError && <Navigate to="/noauth" replace />}
       {/*{mutation.isSuccess && <Navigate to="/waiting" replace />}*/}
-      {mutation.isSuccess && <Navigate to="/chatroom" replace />}
+      {mutation.isSuccess && <Navigate to="/intro" replace />}
     </>
   );
 }
