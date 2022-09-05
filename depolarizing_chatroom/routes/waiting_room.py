@@ -8,6 +8,7 @@ from .. import (
 )
 from ..constants import SOCKET_NAMESPACE_WAITING_ROOM
 from ..data import models
+from ..util import check_socket_auth
 
 
 @socket_manager.on("connect", namespace=SOCKET_NAMESPACE_WAITING_ROOM)
@@ -16,14 +17,10 @@ async def handle_connect(session_id, _environ, auth) -> None:
 
     access = get_data_access()
 
-    try:
-        user_id = auth["token"]
-    except KeyError:
-        return
-
-    user = access.session.query(models.User).filter_by(response_id=user_id).first()
-
-    if not user:
+    if not (user := check_socket_auth(auth, access)):
+        await socket_manager.disconnect(
+            session_id, namespace=SOCKET_NAMESPACE_WAITING_ROOM
+        )
         return
 
     if not user.view:
@@ -45,7 +42,7 @@ async def handle_connect(session_id, _environ, auth) -> None:
         return
 
     await socket_manager.save_session(
-        session_id, {"id": user_id}, namespace=SOCKET_NAMESPACE_WAITING_ROOM
+        session_id, {"id": user.id}, namespace=SOCKET_NAMESPACE_WAITING_ROOM
     )
 
     access.session.commit()

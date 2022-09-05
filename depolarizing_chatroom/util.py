@@ -3,7 +3,7 @@ from datetime import datetime
 from hashlib import sha256
 from secrets import choice
 from string import ascii_letters, digits
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 
 from .constants import MIN_COUNTED_MESSAGE_WORD_COUNT
 from .data import models
@@ -66,6 +66,15 @@ def last_n_turns(
             counted_turn_count += 1
         n_turns.append(turn)
     return n_turns[::-1]
+
+
+def check_socket_auth(auth, access) -> Optional[models.User]:
+    try:
+        user_id = auth["token"]
+    except KeyError:
+        return
+
+    return access.session.query(models.User).filter_by(response_id=user_id).first()
 
 
 def format_dt(val: datetime) -> str:

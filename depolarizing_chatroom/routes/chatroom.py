@@ -25,7 +25,7 @@ from ..data.template import (
     HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork,
 )
 from ..suggest_rephrasings import STRATEGY_LOGIT_BIASES, BASE_LOGIT_BIASES
-from ..util import calculate_turns, last_n_turns
+from ..util import calculate_turns, last_n_turns, check_socket_auth
 
 
 class InitialViewBody(BaseModel):
@@ -67,18 +67,12 @@ async def handle_connect(session_id, _environ, auth) -> None:
 
     access = get_data_access()
 
-    try:
-        user_id = auth["token"]
-    except KeyError:
-        return
-
-    user = access.session.query(models.User).filter_by(response_id=user_id).first()
-
-    if not user:
+    if not (user := check_socket_auth(auth, access)):
+        await socket_manager.disconnect(session_id, namespace=SOCKET_NAMESPACE_CHATROOM)
         return
 
     await socket_manager.save_session(
-        session_id, {"id": user_id}, namespace=SOCKET_NAMESPACE_CHATROOM
+        session_id, {"id": user.id}, namespace=SOCKET_NAMESPACE_CHATROOM
     )
 
     socket_manager.enter_room(
