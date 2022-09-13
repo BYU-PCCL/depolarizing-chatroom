@@ -110,5 +110,3 @@ async def auth_exception_handler(*_) -> RedirectResponse:
 
 
 from . import routes
-
-
