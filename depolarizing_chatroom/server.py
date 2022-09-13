@@ -1,6 +1,7 @@
 import os
 from os import path
 from typing import Dict
+from concurrent.futures import ThreadPoolExecutor
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -55,8 +56,8 @@ def get_db() -> SessionLocal:
 
 @app.on_event("startup")
 async def startup_event():
-    # TestDataAccess(get_data_access().session).initialize_waiting_room_test()
-    pass
+    global executor
+    executor = ThreadPoolExecutor()
 
 
 def get_data_access() -> DataAccess:

@@ -11,6 +11,7 @@ from ..server import (
     DataAccess,
     get_data_access,
     get_user_from_auth_code,
+    executor,
 )
 from .. import suggest_rephrasings as sr
 from ..constants import (
@@ -231,8 +232,39 @@ async def handle_typing(session_id):
     )
 
 
-def generate_rephrasings():
-    pass
+def generate_rephrasing_task(prompt, strategy):
+    (response,), _ = sr.collect_rephrasings(
+        sr.rephrasings_generator(
+            prompt,
+            logit_bias={
+                **(STRATEGY_LOGIT_BIASES.get(strategy, {})),
+                **BASE_LOGIT_BIASES,
+            },
+            n=1,
+        )
+    )
+    return strategy, response
+
+
+async def generate_rephrasings(templates, turns):
+    prompts = {
+        strategy: template.render(
+            HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork(turns)
+        )
+        for (strategy, template) in templates.items()
+    }
+
+    # run in executor to avoid blocking the event loop
+    return dict(
+        await asyncio.gather(
+            *[
+                asyncio.get_event_loop().run_in_executor(
+                    executor, generate_rephrasing_task, prompt, strategy
+                )
+                for (strategy, prompt) in prompts.items()
+            ]
+        )
+    )
 
 
 @socket_manager.on("message", namespace=SOCKET_NAMESPACE_CHATROOM)
@@ -366,24 +398,12 @@ async def handle_message_sent(session_id, body):
     # print()
     # print(sr.create_prompt(turns, sr.rephrasing_specs["validate"]))
 
-    rephrasings = []
-    for strategy, template in templates.items():
-        prompt = template.render(
-            HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork(
-                template_turns
-            )
-        )
-        (response,), _ = sr.collect_rephrasings(
-            sr.rephrasings_generator(
-                prompt,
-                logit_bias={
-                    **(STRATEGY_LOGIT_BIASES.get(strategy, {})),
-                    **BASE_LOGIT_BIASES,
-                },
-                n=1,
-            )
-        )
-        rephrasings.append(models.Rephrasing(message_id=message.id, body=response))
+    rephrasings = [
+        models.Rephrasing(message_id=message.id, body=response)
+        for (strategy, response) in (
+            await generate_rephrasings(templates, template_turns)
+        ).items()
+    ]
 
     access.session.add_all(rephrasings)
     access.commit()
