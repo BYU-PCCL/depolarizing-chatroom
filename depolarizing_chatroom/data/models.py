@@ -171,9 +171,11 @@ class User(Base):
 
     @property
     def post_survey_url(self) -> str:
-        return POST_SURVEY_URL.format(
-            link_id=self.response_id, treatment=self.treatment
-        ) if POST_SURVEY_URL else None
+        return (
+            POST_SURVEY_URL.format(link_id=self.response_id, treatment=self.treatment)
+            if POST_SURVEY_URL
+            else None
+        )
 
     def __repr__(self):
         return f"<User response_id={self.response_id}>"
