@@ -302,7 +302,7 @@ async def handle_message_sent(session_id, body):
                 and user_turn_count % REPHRASE_EVERY_N_TURNS == 0
             )
 
-    if user_turn_count >= REQUIRED_REPHRASINGS and (
+    if (user_turn_count / REPHRASE_EVERY_N_TURNS) >= REQUIRED_REPHRASINGS and (
         user.receives_rephrasings or user.in_untreated_conversation
     ):
         await socket_manager.emit(
