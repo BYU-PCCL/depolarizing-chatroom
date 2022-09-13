@@ -91,6 +91,4 @@ async def get_socket_session_user(
     except KeyError:
         return
 
-    user = access.session.query(models.User).filter_by(response_id=user_id).first()
-
-    return user
+    return access.session.query(models.User).get(user_id)
