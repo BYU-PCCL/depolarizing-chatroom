@@ -39,7 +39,7 @@ function ChatMessage({
   return (
     <div
       className={
-        "w-full flex flex-col mb-3 " + (isSender ? "items-end" : (tutorial ? "items-center" : "items-start"))
+        "w-full flex flex-col mb-3 " + (isSender ? "items-end" : "items-start")
       }
     >
       <div
@@ -47,7 +47,7 @@ function ChatMessage({
           "px-4 py-2 rounded-xl " +
           (isSender
             ? "rounded-br-none text-white bg-blue-600"
-            : (tutorial ? "max-w-[90%] text-center bg-green-200" : "bg-gray-200 rounded-bl-none"))
+            : (tutorial ? "border bg-green-100 border-green-600" : "bg-gray-200 rounded-bl-none"))
         }
       >
         {body}
