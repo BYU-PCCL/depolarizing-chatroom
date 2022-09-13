@@ -60,6 +60,7 @@ async def handle_connect(session_id, _environ, auth) -> None:
         .populate_existing()
         .filter(
             models.User.started_waiting.isnot(None),
+            models.User.finished_waiting.is_(None),
             models.User.treatment == user.match_with,
         )
     ).first()
