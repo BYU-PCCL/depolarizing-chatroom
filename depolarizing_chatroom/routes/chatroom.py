@@ -18,6 +18,7 @@ from ..constants import (
     MIN_REPHRASING_TURNS,
     REPHRASE_EVERY_N_TURNS,
     SOCKET_NAMESPACE_CHATROOM,
+    REQUIRED_REPHRASINGS,
 )
 from ..data import models
 from ..data.models import UserPosition
@@ -300,6 +301,15 @@ async def handle_message_sent(session_id, body):
                 turn_count >= MIN_REPHRASING_TURNS
                 and user_turn_count % REPHRASE_EVERY_N_TURNS == 0
             )
+
+    if user_turn_count >= REQUIRED_REPHRASINGS and (
+        user.receives_rephrasings or user.in_untreated_conversation
+    ):
+        await socket_manager.emit(
+            "min_limit_reached",
+            to=chatroom_id,
+            namespace=SOCKET_NAMESPACE_CHATROOM,
+        )
 
     access.add_to_db(
         message := models.Message(
