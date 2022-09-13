@@ -171,3 +171,15 @@ class TestDataAccess(DataAccess):
         )
         self.add_to_db(oppose)
         self.add_to_db(support)
+
+
+def build_prod_database(force=False) -> None:
+    """
+    Build production database
+    """
+    if (db_path := Path("chatrooms.sqlite3")).exists():
+        if force:
+            db_path.unlink()
+        else:
+            raise FileExistsError("Database already exists.")
+    Base.metadata.create_all(bind=engine)

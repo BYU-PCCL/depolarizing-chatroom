@@ -7,7 +7,8 @@ from typing import Dict, Any
 from pydantic import BaseModel
 from fastapi.requests import Request
 
-from .. import app, suggest_rephrasings as sr, TemplateManager
+from ..server import app, TemplateManager
+from .. import suggest_rephrasings as sr
 from ..data.template import (
     HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork,
 )

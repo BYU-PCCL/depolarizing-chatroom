@@ -5,7 +5,7 @@ from secrets import choice
 from string import ascii_letters, digits
 from typing import List, Tuple, Dict, Any, Optional, Callable
 
-from . import DataAccess
+from .data.crud import DataAccess
 from .constants import MIN_COUNTED_MESSAGE_WORD_COUNT
 from .data import models
 

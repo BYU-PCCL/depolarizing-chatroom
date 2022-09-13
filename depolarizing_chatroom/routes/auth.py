@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
-from .. import app, DataAccess, get_data_access, get_user_from_auth_code
+from ..server import app, DataAccess, get_data_access, get_user_from_auth_code
 from ..data import models
 from ..data.models import UserPosition
 

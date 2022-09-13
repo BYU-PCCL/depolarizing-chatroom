@@ -8,4 +8,6 @@ SOCKET_NAMESPACE_CHATROOM = "/chatroom"
 SOCKET_NAMESPACE_WAITING_ROOM = "/waiting-room"
 POST_SURVEY_URL = (
     f'{os.environ["POST_SURVEY_URL"]}?LinkID={{link_id}}&treatment={{treatment}}'
+    if "POST_SURVEY_URL" in os.environ
+    else None
 )

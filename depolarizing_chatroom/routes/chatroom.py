@@ -5,14 +5,14 @@ from datetime import datetime
 from fastapi import Depends
 from pydantic import BaseModel
 
-from .. import (
+from ..server import (
     app,
     socket_manager,
     DataAccess,
     get_data_access,
     get_user_from_auth_code,
-    suggest_rephrasings as sr,
 )
+from .. import suggest_rephrasings as sr
 from ..constants import (
     MIN_COUNTED_MESSAGE_WORD_COUNT,
     MIN_REPHRASING_TURNS,
@@ -68,7 +68,7 @@ async def initial_view(
 
 @socket_manager.on("connect", namespace=SOCKET_NAMESPACE_CHATROOM)
 async def handle_connect(session_id, _environ, auth) -> None:
-    from .. import get_data_access
+    from ..server import get_data_access
 
     access = get_data_access()
 
@@ -119,7 +119,7 @@ async def redirect_to_waiting(session_id) -> None:
 
 @socket_manager.on("rephrasing_response", namespace=SOCKET_NAMESPACE_CHATROOM)
 async def handle_rephrasing_response(session_id, body) -> None:
-    from .. import get_data_access
+    from ..server import get_data_access
 
     access = get_data_access()
 
@@ -200,7 +200,7 @@ async def handle_rephrasing_response(session_id, body) -> None:
 
 @socket_manager.on("typing", namespace=SOCKET_NAMESPACE_CHATROOM)
 async def handle_typing(session_id):
-    from .. import get_data_access
+    from ..server import get_data_access
 
     access = get_data_access()
 
@@ -236,8 +236,7 @@ def generate_rephrasings():
 
 @socket_manager.on("message", namespace=SOCKET_NAMESPACE_CHATROOM)
 async def handle_message_sent(session_id, body):
-    from .. import get_data_access
-    from .. import get_templates
+    from ..server import get_data_access, get_templates
 
     access = get_data_access()
     templates = get_templates()
@@ -396,7 +395,7 @@ async def handle_message_sent(session_id, body):
 
 @socket_manager.on("clear", namespace=SOCKET_NAMESPACE_CHATROOM)
 async def clear_chatroom(session_id):
-    from .. import get_data_access
+    from ..server import get_data_access
 
     access = get_data_access()
 

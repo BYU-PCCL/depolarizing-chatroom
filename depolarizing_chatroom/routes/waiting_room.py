@@ -2,7 +2,7 @@ from datetime import datetime
 
 import numpy as np
 
-from .. import (
+from ..server import (
     socket_manager,
     DataAccess,
 )
@@ -13,7 +13,7 @@ from ..util import check_socket_auth, get_socket_session_user
 
 @socket_manager.on("connect", namespace=SOCKET_NAMESPACE_WAITING_ROOM)
 async def handle_connect(session_id, _environ, auth) -> None:
-    from .. import get_data_access
+    from ..server import get_data_access
 
     access = get_data_access()
 
@@ -120,7 +120,7 @@ async def handle_connect(session_id, _environ, auth) -> None:
 
 @socket_manager.on("disconnect", namespace=SOCKET_NAMESPACE_WAITING_ROOM)
 async def handle_disconnect(session_id) -> None:
-    from .. import get_data_access
+    from ..server import get_data_access
 
     access = get_data_access()
 
