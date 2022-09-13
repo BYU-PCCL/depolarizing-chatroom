@@ -139,7 +139,7 @@ class User(Base):
 
     @property
     def position(self) -> UserPosition:
-        if self.treatment < 3:
+        if self.treatment <= 3:
             return UserPosition.SUPPORT
         return UserPosition.OPPOSE
 

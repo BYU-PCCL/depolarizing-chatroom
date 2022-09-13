@@ -268,12 +268,21 @@ function ChatroomPage() {
   );
 
   const handleLeave = useCallback(() => {
+    // Navigate to user.post_survey_url
+    if (!user?.data?.post_survey_url) {
+      return;
+    }
+
+    window.location.href = user.data.post_survey_url as string;
+  }, [user.data]);
+
+  const handleLeaveClicked = useCallback(() => {
     if (limitReached) {
-      // TODO: Handle actually leaving
+      handleLeave();
     } else {
       setShowingLeaveModal(true);
     }
-  }, [limitReached]);
+  }, [handleLeave, limitReached]);
 
   useEffect(() => {
     if (chatMessagesElement.current) {
@@ -320,7 +329,7 @@ function ChatroomPage() {
                   ? " bg-green-300 hover:bg-green-400 active:bg-green-500"
                   : " bg-gray-300 hover:bg-gray-400 active:bg-red-500")
               }
-              onClick={handleLeave}
+              onClick={handleLeaveClicked}
             >
               {limitReached ? "Finish" : "Leave"}
             </button>
@@ -382,6 +391,7 @@ function ChatroomPage() {
         onCancel={() => setShowingLeaveModal(false)}
         onConfirm={(reason: string) => {
           setShowingLeaveModal(false);
+          handleLeave();
           // TODO: Also redirect somewhere
         }}
       />
