@@ -3,8 +3,9 @@ from datetime import datetime
 from hashlib import sha256
 from secrets import choice
 from string import ascii_letters, digits
-from typing import List, Tuple, Dict, Any, Optional
+from typing import List, Tuple, Dict, Any, Optional, Callable
 
+from . import DataAccess
 from .constants import MIN_COUNTED_MESSAGE_WORD_COUNT
 from .data import models
 
@@ -79,3 +80,17 @@ def check_socket_auth(auth, access) -> Optional[models.User]:
 
 def format_dt(val: datetime) -> str:
     return val.strftime("%H:%M | %b %d, '%y")
+
+
+async def get_socket_session_user(
+    access: DataAccess, session_id: str, get_session_fn: Callable, namespace: str
+) -> Optional[models.User]:
+    # Duplicated from chatroom
+    try:
+        user_id = (await get_session_fn(session_id, namespace=namespace))["id"]
+    except KeyError:
+        return
+
+    user = access.session.query(models.User).filter_by(response_id=user_id).first()
+
+    return user

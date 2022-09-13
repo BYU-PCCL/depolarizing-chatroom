@@ -25,7 +25,12 @@ from ..data.template import (
     HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork,
 )
 from ..suggest_rephrasings import STRATEGY_LOGIT_BIASES, BASE_LOGIT_BIASES
-from ..util import calculate_turns, last_n_turns, check_socket_auth
+from ..util import (
+    calculate_turns,
+    last_n_turns,
+    check_socket_auth,
+    get_socket_session_user,
+)
 
 
 class InitialViewBody(BaseModel):
@@ -103,17 +108,6 @@ async def handle_connect(session_id, _environ, auth) -> None:
     )
 
 
-async def get_socket_session_user(access: DataAccess, session_id: str) -> models.User:
-    user_id = (
-        await socket_manager.get_session(
-            session_id, namespace=SOCKET_NAMESPACE_CHATROOM
-        )
-    )["id"]
-    user = access.session.query(models.User).filter_by(response_id=user_id).first()
-
-    return user
-
-
 async def redirect_to_waiting(session_id) -> None:
     await socket_manager.emit(
         "redirect",
@@ -129,9 +123,11 @@ async def handle_rephrasing_response(session_id, body) -> None:
 
     access = get_data_access()
 
-    try:
-        user = await get_socket_session_user(access, session_id)
-    except KeyError:
+    if not (
+        user := await get_socket_session_user(
+            access, session_id, socket_manager.get_session, SOCKET_NAMESPACE_CHATROOM
+        )
+    ):
         await redirect_to_waiting(session_id)
         return
 
@@ -208,9 +204,11 @@ async def handle_typing(session_id):
 
     access = get_data_access()
 
-    try:
-        user = await get_socket_session_user(access, session_id)
-    except KeyError:
+    if not (
+        user := await get_socket_session_user(
+            access, session_id, socket_manager.get_session, SOCKET_NAMESPACE_CHATROOM
+        )
+    ):
         await redirect_to_waiting(session_id)
         return
 
@@ -244,9 +242,11 @@ async def handle_message_sent(session_id, body):
     access = get_data_access()
     templates = get_templates()
 
-    try:
-        user = await get_socket_session_user(access, session_id)
-    except KeyError:
+    if not (
+        user := await get_socket_session_user(
+            access, session_id, socket_manager.get_session, SOCKET_NAMESPACE_CHATROOM
+        )
+    ):
         await redirect_to_waiting(session_id)
         return
 
@@ -400,15 +400,12 @@ async def clear_chatroom(session_id):
 
     access = get_data_access()
 
-    try:
-        user = await get_socket_session_user(access, session_id)
-    except KeyError:
-        socket_manager.emit(
-            "redirect",
-            {"to": "waiting"},
-            to=session_id,
-            namespace=SOCKET_NAMESPACE_CHATROOM,
+    if not (
+        user := await get_socket_session_user(
+            access, session_id, socket_manager.get_session, SOCKET_NAMESPACE_CHATROOM
         )
+    ):
+        await redirect_to_waiting(session_id)
         return
 
     # get chatroom

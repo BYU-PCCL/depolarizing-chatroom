@@ -8,7 +8,7 @@ from .. import (
 )
 from ..constants import SOCKET_NAMESPACE_WAITING_ROOM
 from ..data import models
-from ..util import check_socket_auth
+from ..util import check_socket_auth, get_socket_session_user
 
 
 @socket_manager.on("connect", namespace=SOCKET_NAMESPACE_WAITING_ROOM)
@@ -118,29 +118,20 @@ async def handle_connect(session_id, _environ, auth) -> None:
         )
 
 
-async def get_socket_session_user(access: DataAccess, session_id: str) -> models.User:
-    # Duplicated from chatroom
-    user_id = (
-        await socket_manager.get_session(
-            session_id, namespace=SOCKET_NAMESPACE_WAITING_ROOM
-        )
-    )["id"]
-    user = access.session.query(models.User).filter_by(response_id=user_id).first()
-
-    return user
-
-
 @socket_manager.on("disconnect", namespace=SOCKET_NAMESPACE_WAITING_ROOM)
 async def handle_disconnect(session_id) -> None:
     from .. import get_data_access
 
     access = get_data_access()
 
-    try:
-        user = await get_socket_session_user(access, session_id)
-    except KeyError:
-        return
-    if not user:
+    if not (
+        user := await get_socket_session_user(
+            access,
+            session_id,
+            socket_manager.get_session,
+            SOCKET_NAMESPACE_WAITING_ROOM,
+        )
+    ):
         return
 
     # Remove user from waiting room pool
