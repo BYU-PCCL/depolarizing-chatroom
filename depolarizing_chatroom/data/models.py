@@ -2,7 +2,6 @@ import enum
 
 from sqlalchemy import (
     Integer,
-    Float,
     Column,
     Text,
     String,
@@ -20,17 +19,15 @@ class Chatroom(Base):
     __tablename__ = "chatrooms"
 
     id = Column(Integer, primary_key=True)
-    code_id = Column(Integer, ForeignKey("codes.id"))
     prompt = Column(String(320))
 
-    # relationship (one-to-many with users, one-to-many with messages, many-to-one
-    # with codes)
+    # relationship (one-to-many with users, one-to-many with messages)
     users = relationship("User", back_populates="chatroom")
     messages = relationship("Message", back_populates="chatroom")
-    code = relationship("Code", back_populates="chatrooms")
+    limit_reached = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"{self.code}:{self.prompt}, {self.users}"
+        return f"{self.prompt}, {self.users}"
 
 
 class Rephrasing(Base):
@@ -109,13 +106,10 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     chatroom_id = Column(Integer, ForeignKey("chatrooms.id"))
-    code_id = Column(Integer, ForeignKey("codes.id"))
     response_id = Column(String(320), nullable=False)
     started_waiting = Column(DateTime)
     finished_waiting = Column(DateTime)
     waiting_session_id = Column(String)
-    message_count = Column(Integer, default=0)
-    status = Column(String(20), default="code")
     # Treatment key:
     # 1: Supports stricter gun laws, treated with GPT-3. Matched with 5.
     # 2: Supports stricter gun laws, talks to person treated with GPT-3. Matched with 4.
@@ -126,10 +120,10 @@ class User(Base):
     # 7: Talking to GPT-3, always treated with GPT-3.
     treatment = Column(Integer)
     view = Column(String(), nullable=True)
-    # TODO: Keep track of how long the respondent has been waiting for a response.
+    leave_reason = Column(Text)
 
     # relationship (many-to-one with chatrooms, one-to-many with messages,
-    # many-to-one with codes, one-to-many with responses)
+    # one-to-many with responses)
     chatroom = relationship("Chatroom", back_populates="users")
     messages = relationship(
         "Message", back_populates="user", order_by=Message.send_time.desc
@@ -179,98 +173,3 @@ class User(Base):
 
     def __repr__(self):
         return f"<User response_id={self.response_id}>"
-
-
-class Response(Base):
-    __tablename__ = "responses"
-
-    id = Column(Integer, primary_key=True)
-    userid = Column(Integer, ForeignKey("users.id"))
-    code_id = Column(Integer, ForeignKey("codes.id"))
-    question_id = Column(Integer, ForeignKey("questions.id"))
-    _response = Column(Text)  # potential list delineated by pipes |
-    is_post = Column(Boolean, nullable=False, default=False)
-
-    # relationship (many-to-one with Codes, many-to-one with Users, many-to-one with
-    # Questions)
-    code = relationship("Code", back_populates="responses")
-    user = relationship("User", back_populates="responses")
-    question = relationship("Question", back_populates="responses")
-
-    @property
-    def response(self):
-        return [x for x in self._response.split("|")]
-
-    @response.setter
-    def response(self, vals):
-        self._response = "|".join(vals)
-
-    def __repr__(self):
-        return f"{self.user}@{self.question}: {self.response}"
-
-
-class Question(Base):
-    __tablename__ = "questions"
-
-    id = Column(Integer, primary_key=True)
-    code_id = Column(Integer, ForeignKey("codes.id"))
-    question = Column(Text, nullable=False)
-    type = Column(String(20), nullable=False)
-    number = Column(Integer, nullable=False)  # question number
-    start = Column(Float)
-    step = Column(Float)
-    is_post = Column(Boolean, default=False)
-    _options = Column(Text)  # pipe | delineated options
-    _range = Column(Text)  # pipe | delineated min and max (for grid)
-    _questions = Column(Text)  # pipe | delineated questions (for grid, each row)
-
-    # relationship (many-to-one with Codes, one-to-many with Responses)
-    responses = relationship("Response", back_populates="question")
-    code = relationship("Code", back_populates="questions")
-
-    @property
-    def options(self):
-        return [x for x in self._options.split("|")]
-
-    @options.setter
-    def options(self, vals):
-        self._options = "|".join(vals)
-
-    @property
-    def range(self):
-        return [float(x) for x in self._range.split("|")]
-
-    @range.setter
-    def range(self, vals):
-        self._range = "|".join(list(map(str, vals)))
-
-    @property
-    def questions(self):
-        return [x for x in self._questions.split("|")]
-
-    @questions.setter
-    def questions(self, vals):
-        self._questions = "|".join(vals)
-
-    def __repr__(self):
-        return self.question
-
-
-class Code(Base):
-    __tablename__ = "codes"
-
-    id = Column(Integer, primary_key=True)
-    code = Column(String(20), nullable=False, unique=True)
-    expiry = Column(DateTime, nullable=False)
-
-    # relationship (one-to-many with chatrooms, one-to-many with user, one-to-many
-    # with responses, one-to-many with questions)
-    chatrooms = relationship("Chatroom", back_populates="code")
-    users = relationship("User", back_populates="code")
-    responses = relationship("Response", back_populates="code")
-    questions = relationship(
-        "Question", back_populates="code", order_by=Question.number.desc
-    )
-
-    def __repr__(self):
-        return self.code

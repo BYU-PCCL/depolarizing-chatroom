@@ -29,18 +29,6 @@ class DataAccess:
         self._session.add(obj)
         self.commit()
 
-    def add_code(self, code, expiry, fmt="%Y-%m-%d") -> models.Code:
-        """
-        code: str
-        expiry: datetime (default format YYYY-MM-DD)
-
-        returns Code
-        """
-        self.add_to_db(
-            (c := models.Code(code=code, expiry=datetime.strptime(expiry, fmt)))
-        )
-        return c
-
     def add_chatroom(self, prompt) -> models.Chatroom:
         """
         Prompt to talk about in chatroom
@@ -78,48 +66,6 @@ class DataAccess:
 
 
 class TestDataAccess(DataAccess):
-    def initialize_test(self, nusers=8, ncodes=2, nchats=2):
-        """
-        nusers: int, number of users to test with
-        ncodes: int, number of codes (will be divided evenly amongst users)
-        nchats: int, number of chats (per code)
-        WARNING: wipes test database
-        """
-        assert nusers // (nchats * ncodes) == nusers / (
-            nchats * ncodes
-        ), "Chats or codes do not evenly distribute amongst users."
-
-        # reset test database
-        if (db_path := Path("../chatrooms_test.sqlite3")).exists():
-            db_path.unlink()
-            Base.metadata.create_all(bind=engine)
-
-        # populate database with nusers users
-        users = []
-        for nu in range(nusers):
-            u = models.User(response_id=str(nu))
-            users.append(u)
-            self.add_to_db(u)
-
-        # populate database with ncodes codes and, for each code, nchats chatrooms
-        codes = []
-        chats = []
-        for nco in range(ncodes):
-            codes.append(self.add_code(f"code_{nco}", "2021-09-01"))
-            # add chats
-            for nch in range(nchats):
-                chats.append(self.add_chatroom(f"Chatroom {nch}"))
-
-        # assign codes and chats to users
-        for u, co, ch in zip(
-            users, codes * (nusers // ncodes), chats * (nusers // (ncodes * nchats))
-        ):
-            u.code_id = co.id
-            u.chatroom_id = ch.id
-
-        # commit changes
-        self.commit()
-
     def initialize_chat_test(self) -> None:
         if (db_path := Path("chatrooms_test.sqlite3")).exists():
             db_path.unlink()
@@ -129,12 +75,10 @@ class TestDataAccess(DataAccess):
 
         oppose = models.User(
             response_id="oppose",
-            status="chatroom",
             treatment=4,
         )
         support = models.User(
             response_id="support",
-            status="chatroom",
             treatment=1,
         )
         self.add_to_db(oppose)
