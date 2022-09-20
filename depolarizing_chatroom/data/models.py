@@ -88,12 +88,7 @@ class Message(Base):
         return rephrasing.selected_body
 
     def __repr__(self) -> str:
-        return (
-            f"{self.user}@{self.chatroom}: {self.body}"
-            # f"{self.user}@{self.chatroom}: {self.message}\n"
-            # f"{self.rephrasing}\n"
-            # f"{self.trans_accepted}"
-        )
+        return f"{self.user}@{self.chatroom}: {self.body}"
 
 
 class UserPosition(enum.Enum):
@@ -117,19 +112,16 @@ class User(Base):
     # 4: Opposes stricter gun laws, treated with GPT-3. Matched with 2.
     # 5: Opposes stricter gun laws, talks to person treated with GPT-3. Matched with 1.
     # 6: Opposes stricter gun laws, untreated conversation. Matched with 3.
-    # 7: Talking to GPT-3, always treated with GPT-3.
     treatment = Column(Integer)
     view = Column(String(), nullable=True)
     leave_reason = Column(Text)
 
-    # relationship (many-to-one with chatrooms, one-to-many with messages,
-    # one-to-many with responses)
+    # relationship (many-to-one with chatrooms, one-to-many with messages, one-to-many
+    # with responses)
     chatroom = relationship("Chatroom", back_populates="users")
     messages = relationship(
         "Message", back_populates="user", order_by=Message.send_time.desc
     )
-    code = relationship("Code", back_populates="users")
-    responses = relationship("Response", back_populates="user")
 
     @property
     def position(self) -> UserPosition:
