@@ -219,15 +219,10 @@ async def handle_typing(session_id):
         await redirect_to_waiting(session_id)
         return
 
-    room_ids = set(
-        socket_manager._sio.manager.rooms[SOCKET_NAMESPACE_CHATROOM][chatroom.id].keys()
-    )
-    # Get other user's session ID
-    other_session_id = next(iter(room_ids - {session_id}))
-
     await socket_manager.emit(
         "typing",
-        to=other_session_id,
+        to=chatroom.id,
+        skip_sid=session_id,
         namespace=SOCKET_NAMESPACE_CHATROOM,
     )
 

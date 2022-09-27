@@ -3,6 +3,7 @@ from os import path
 from typing import Dict
 from concurrent.futures import ThreadPoolExecutor
 
+import socketio
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.requests import Request
@@ -36,7 +37,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-socket_manager = SocketManager(app=app, cors_allowed_origins=[])
+socket_manager = SocketManager(
+    app=app, cors_allowed_origins=[], client_manager=socketio.AsyncRedisManager()
+)
 
 templates = load_templates_from_directory(os.getenv("TEMPLATES_DIR"))
 executor = None
