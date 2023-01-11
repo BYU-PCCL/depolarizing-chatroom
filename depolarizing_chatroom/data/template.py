@@ -1,9 +1,9 @@
 import html
+import json
 from dataclasses import dataclass
 from functools import partial
-from typing import Set, Dict, Callable, Optional, Any, List, Union
-import json
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Set, Union
 
 import jinja2
 import jinja2.defaults
@@ -41,6 +41,7 @@ class TemplateLoadingError(Exception):
 
 
 class HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork:
+    # TODO: Explain what on earth this does and why we need it because I can't remember
     def __init__(self, data_list: List[Any]):
         self._data_list = data_list
 
@@ -54,10 +55,10 @@ class HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork:
                 and len(last_item := self._data_list[-1]) > 1
             ):
                 data_slice = self._data_list[index]
-                print(index.stop)
                 return data_slice + [last_item[:-1]]
             return self._data_list[index]
         elif isinstance(index, int):
+            # If the index is just an integer, just return the item
             return self._data_list[index]
         else:
             raise TypeError(f"Index must be int or slice, not {type(index)}")
@@ -142,9 +143,6 @@ class TemplateManager:
         default_names = ((static_names | filter_names) & DEFAULT_JINJA_NAMES) | {"data"}
         static_names -= default_names
         filter_names -= default_names
-        # env.filters["v"] = partial(listify, fn=example_filter)
-        # print(env.from_string(result).render(test2=["test", "a", "b"], test="bob"))
-        # return (parsed_template=result, default_names=default_names, names=user_names)
         return PromptTemplate(
             parsed_template, default_names, static_names, filter_names
         )

@@ -1,38 +1,38 @@
 import asyncio
+import os
 import random
+import time
 from datetime import datetime
+from typing import Optional
 
 from fastapi import Depends
 from pydantic import BaseModel
 
-from ..server import (
-    app,
-    socket_manager,
-    DataAccess,
-    get_data_access,
-    get_user_from_auth_code,
-    executor,
-)
-from .. import suggest_rephrasings as sr
 from ..constants import (
     MIN_COUNTED_MESSAGE_WORD_COUNT,
     MIN_REPHRASING_TURNS,
     REPHRASE_EVERY_N_TURNS,
-    SOCKET_NAMESPACE_CHATROOM,
     REQUIRED_REPHRASINGS,
+    SOCKET_NAMESPACE_CHATROOM,
 )
 from ..data import models
-from ..data.models import UserPosition
-from ..data.template import (
-    HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork,
+from ..data.crud import access
+from ..logger import format_parameterized_log_message, logger
+from ..rephrasings import generate_rephrasings
+from ..server import (
+    app,
+    executor,
+    get_templates,
+    get_user_from_auth_code,
+    socket_manager,
 )
-from ..suggest_rephrasings import STRATEGY_LOGIT_BIASES, BASE_LOGIT_BIASES
-from ..util import (
-    calculate_turns,
-    last_n_turns,
-    check_socket_auth,
-    get_socket_session_user,
-)
+from ..socketio import SessionSocketAsyncNamespace, SocketSession
+from ..util import calculate_turns, last_n_turns
+
+
+# Really hacky, shouldn't be here, helps us avoid racking up OpenAI API calls
+# during load testing
+FAKE_REPHRASINGS = os.environ.get("FAKE_REPHRASINGS", "0").lower() == "1"
 
 
 class InitialViewBody(BaseModel):
@@ -40,410 +40,485 @@ class InitialViewBody(BaseModel):
 
 
 @app.get("/chatroom")
-def chatroom(
-    user: models.User = Depends(get_user_from_auth_code),
-    access: DataAccess = Depends(get_data_access),
-):
-    # If user is not in a chatroom, redirect to waiting room
-    if not user.chatroom_id:
+async def get_chatroom(user: models.User = Depends(get_user_from_auth_code)):
+    if not (chatroom := user.chatroom):
+        # If user is not in a chatroom, redirect to waiting room
+        logger.warning(
+            format_parameterized_log_message(
+                "User attempted to join chatroom but is not in one, redirecting to "
+                "waiting room",
+                user_id=user.id,
+            )
+        )
         return {"redirect": "waiting"}
-    chatroom_id = user.chatroom_id
-    # get all previously sent messages in the chatroom
-    messages = (
-        access.session.query(models.Message).filter_by(chatroom_id=chatroom_id).all()
+    chatroom_id = chatroom.id
+    async with access.commit_after():
+        # Get all previously sent messages in the chatroom
+        messages = await access.chatroom_messages(chatroom)
+        # Swap first two messages if chatroom.swap_view_messages is true
+        # Get other user in chatroom
+        partner = await access.other_user_in_chatroom(chatroom_id, user.id)
+    partner_online = partner.finished_chat_time is None
+    logger.debug(
+        format_parameterized_log_message(
+            "GET /chatroom",
+            user_id=user.id,
+            chatroom_id=chatroom_id,
+            message_count=len(messages),
+            partner_online=partner_online,
+        )
     )
-    prompt = (
-        access.session.query(models.Chatroom).filter_by(id=chatroom_id).first().prompt
-    )
-    return {"prompt": prompt, "messages": messages, "id": chatroom_id}
+    return {
+        "messages": messages,
+        "limitReached": chatroom.limit_reached,
+        "partnerOnline": partner.chatroom_session_id is not None,
+        "id": chatroom_id,
+    }
 
 
 @app.post("/initial-view")
 async def initial_view(
     body: InitialViewBody,
     user: models.User = Depends(get_user_from_auth_code),
-    access: DataAccess = Depends(get_data_access),
 ):
-    user.view = body.view
-    access.commit()
-
-
-@socket_manager.on("connect", namespace=SOCKET_NAMESPACE_CHATROOM)
-async def handle_connect(session_id, _environ, auth) -> None:
-    from ..server import get_data_access
-
-    access = get_data_access()
-
-    if not (user := check_socket_auth(auth, access)):
-        await socket_manager.disconnect(session_id, namespace=SOCKET_NAMESPACE_CHATROOM)
-        return
-
-    await socket_manager.save_session(
-        session_id, {"id": user.id}, namespace=SOCKET_NAMESPACE_CHATROOM
-    )
-
-    socket_manager.enter_room(
-        session_id, user.chatroom_id, namespace=SOCKET_NAMESPACE_CHATROOM
-    )
-    # TODO: Handle pairing with other users—and notifying them
-    # await socket_manager.emit(
-    #     "new_message", body, room=f"chatroom-{body['id']}", callback=message_received
-    # )
-
-    messages = []
-    for message in access.session.query(models.Message).filter_by(
-        chatroom_id=user.chatroom_id
-    ):
-        messages.append(
-            {
-                "id": message.id,
-                "user_id": message.user.id,
-                "message": message.selected_body,
-            }
+    if not user.chatroom or user.view:
+        logger.warning(
+            format_parameterized_log_message(
+                "User attempted to set initial view but is not in a chatroom or has "
+                "already set their view",
+                user_id=user.id,
+                chatroom_id=user.chatroom_id,
+                has_view=user.view is not None,
+            )
         )
-
-    await socket_manager.emit(
-        f"messages",
-        messages,
-        to=session_id,
-        namespace=SOCKET_NAMESPACE_CHATROOM,
-    )
-
-
-async def redirect_to_waiting(session_id) -> None:
-    await socket_manager.emit(
-        "redirect",
-        {"to": "waiting"},
-        to=session_id,
-        namespace=SOCKET_NAMESPACE_CHATROOM,
-    )
-
-
-@socket_manager.on("rephrasing_response", namespace=SOCKET_NAMESPACE_CHATROOM)
-async def handle_rephrasing_response(session_id, body) -> None:
-    from ..server import get_data_access
-
-    access = get_data_access()
-
-    if not (
-        user := await get_socket_session_user(
-            access, session_id, socket_manager.get_session, SOCKET_NAMESPACE_CHATROOM
-        )
-    ):
-        await redirect_to_waiting(session_id)
+        # This will effectively prevent the user from ever changing their view
         return
-
-    user_id = user.id
-
-    chatroom_id = user.chatroom_id
-    if not chatroom_id:
-        await redirect_to_waiting(session_id)
-        return
-
-    message_id = body["message_id"]
-    message_body = body["body"]
-    message = access.session.query(models.Message).filter_by(id=message_id).first()
-
-    if message.sender_id != user.id or message.chatroom_id != chatroom_id:
-        return
-
-    rephrasing_id = body.get("rephrasing_id")
-    if rephrasing_id:
-        rephrasing = (
-            access.session.query(models.Rephrasing).filter_by(id=rephrasing_id).first()
-        )
-
-        if rephrasing.message_id != message.id:
-            return
-
-        if rephrasing.body != message_body:
-            rephrasing.edited_body = message_body
-
-        message.accepted_rephrasing_id = rephrasing.id
-    else:
-        # I'm pretty sure this is done implicitly
-        message.accepted_rephrasing_id = None
-
-        if message.body != message_body:
-            message.edited_body = message_body
-
-    # get user
-    user = access.session.query(models.User).filter_by(id=user_id).first()
-
-    # update message count
-    # VIN HOWE: REMOVE THIS FOR NOW
-    # user.message_count += 1  # increment user message count
-    access.commit()
-    body["count"] = user.message_count
-
-    """
-    Check if user has exceeded chat limit, if so redirect to survey
-    TODO what should the limit be, especially for two people
-    """
-    # get chatroom, send message
-    chatroom = access.session.query(models.Chatroom).filter_by(id=chatroom_id).first()
-
-    # if user.message_count >= MESSAGE_LIMIT:
-    #     # redirect each user
-    #     for u in chatroom.users:
-    #         u.status = "postsurvey"
-    #     access.commit()
-    #     body["redirect"] = "/"
-
-    response = dict(
-        user_id=user_id,
-        message=message.selected_body,
-    )
-
-    await socket_manager.emit(
-        f"new_message", response, to=chatroom_id, namespace=SOCKET_NAMESPACE_CHATROOM
-    )
-
-
-@socket_manager.on("typing", namespace=SOCKET_NAMESPACE_CHATROOM)
-async def handle_typing(session_id):
-    from ..server import get_data_access
-
-    access = get_data_access()
-
-    if not (
-        user := await get_socket_session_user(
-            access, session_id, socket_manager.get_session, SOCKET_NAMESPACE_CHATROOM
-        )
-    ):
-        await redirect_to_waiting(session_id)
-        return
-
+    # At this point, the user will already have a chatroom
     chatroom = user.chatroom
-    if not chatroom:
-        await redirect_to_waiting(session_id)
-        return
-
-    await socket_manager.emit(
-        "typing",
-        to=chatroom.id,
-        skip_sid=session_id,
-        namespace=SOCKET_NAMESPACE_CHATROOM,
-    )
-
-
-def generate_rephrasing_task(prompt, strategy):
-    (response,), _ = sr.collect_rephrasings(
-        sr.rephrasings_generator(
-            prompt,
-            logit_bias={
-                **(STRATEGY_LOGIT_BIASES.get(strategy, {})),
-                **BASE_LOGIT_BIASES,
-            },
-            n=1,
-        )
-    )
-    return strategy, response
-
-
-async def generate_rephrasings(templates, turns):
-    prompts = {
-        strategy: template.render(
-            HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork(turns)
-        )
-        for (strategy, template) in templates.items()
-    }
-
-    # run in executor to avoid blocking the event loop
-    return dict(
-        await asyncio.gather(
-            *[
-                asyncio.get_event_loop().run_in_executor(
-                    executor, generate_rephrasing_task, prompt, strategy
-                )
-                for (strategy, prompt) in prompts.items()
-            ]
+    async with access.commit_after():
+        user.view = body.view
+        access.add_message(chatroom.id, user.id, body.view)
+        access.save_event(user.id, "set_view")
+    logger.info(
+        format_parameterized_log_message(
+            "User set initial view",
+            user_id=user.id,
+            chatroom_id=chatroom.id,
+            view_length=len(body.view),
         )
     )
 
 
-@socket_manager.on("message", namespace=SOCKET_NAMESPACE_CHATROOM)
-async def handle_message_sent(session_id, body):
-    from ..server import get_data_access, get_templates
+class ChatroomSocketSession(SocketSession):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._chatroom = self._user.chatroom
 
-    access = get_data_access()
-    templates = get_templates()
+    async def on_connect(self) -> Optional[bool]:
+        if not self._chatroom:
+            return False
 
-    if not (
-        user := await get_socket_session_user(
-            access, session_id, socket_manager.get_session, SOCKET_NAMESPACE_CHATROOM
+        logger.debug(
+            format_parameterized_log_message(
+                "User connected to chatroom",
+                user_id=self._user.id,
+                chatroom_id=self._chatroom.id,
+                session_id=self._session_id,
+            )
         )
-    ):
-        await redirect_to_waiting(session_id)
-        return
 
-    chatroom_id = user.chatroom_id
-    chatroom = (
-        access.session.query(models.Chatroom).filter_by(id=user.chatroom_id).first()
-    )
-    if not chatroom:
-        await redirect_to_waiting(session_id)
-        return
+        async with access.commit_after():
+            self._user.chatroom_session_id = self._session_id
 
-    message = body["body"]
+            if self._user.started_chat_time is None:
+                self._user.started_chat_time = datetime.now()
 
-    chatroom_messages = (
-        access.session.query(models.Message)
-        .filter_by(chatroom_id=chatroom_id)
-        .order_by(models.Message.send_time.asc())
-        .all()
-    )
+            self._user.finished_chat_time = None
 
-    # Count messages, not including anything with fewer than 4 words (just counting by
-    # spaces), a turn only happens if one user sends at least one message with at least
-    # 4 words, and we need 3 turns, or three alternating chunks of at least one message
-    # with at least 4 words. So we calculate turns and only send rephrasings if we have
-    # turns % 3 == 0. Probably a little expensive, but it seems fine.
-    # We'll rephrase the first message sent because the first two messages are input
-    # before the chat starts.
+            access.save_event(self._user.id, "join_chatroom", data=self._session_id)
 
-    will_attempt_rephrasings = False
-    user_position = "oppose" if user.position is UserPosition.OPPOSE else "support"
-    turn_count, user_turn_count, last_turn_counted, turns = calculate_turns(
-        [
-            {
-                "position": "oppose"
-                if message.user.position is UserPosition.OPPOSE
-                else "support",
-                "body": message.selected_body,
-            }
-            for message in chatroom_messages
-        ],
-        user_position,
-    )
-    if user.receives_rephrasings:
-        message_is_min_length = len(message.split()) >= MIN_COUNTED_MESSAGE_WORD_COUNT
-        new_turn = chatroom_messages and user.id != chatroom_messages[-1].sender_id
+        self._sio.enter_room(self._session_id, self._user.chatroom_id)
 
-        will_attempt_rephrasings = False
+        await self._sio.emit(
+            "partner_status",
+            True,
+            to=self._user.chatroom_id,
+            skip_sid=self._session_id,
+        )
 
-        if message_is_min_length and (new_turn or not last_turn_counted):
-            user_turn_count += 1
-            will_attempt_rephrasings = (
-                turn_count >= MIN_REPHRASING_TURNS
-                and user_turn_count % REPHRASE_EVERY_N_TURNS == 0
+        messages = []
+        for message in await access.chatroom_messages(self._chatroom):
+            messages.append(
+                {
+                    "id": message.id,
+                    "user_id": message.sender_id,
+                    "message": message.selected_body,
+                }
             )
 
-    if (user_turn_count / REPHRASE_EVERY_N_TURNS) >= REQUIRED_REPHRASINGS and (
-        user.receives_rephrasings or user.in_untreated_conversation
-    ):
-        await socket_manager.emit(
-            "min_limit_reached",
-            to=chatroom_id,
-            namespace=SOCKET_NAMESPACE_CHATROOM,
+        await self._sio.emit("messages", messages, to=self._session_id)
+
+    async def on_disconnect(self) -> None:
+        if not self._chatroom:
+            return
+
+        await self._sio.emit(
+            "partner_status", False, to=self._chatroom.id, skip_sid=self._session_id
         )
 
-    access.add_to_db(
-        message := models.Message(
-            chatroom_id=chatroom.id,
-            sender_id=user.id,
-            body=message,
-            send_time=datetime.now(),
+        async with access.commit_after():
+            self._user.chatroom_session_id = None
+            access.save_event(self._user.id, "leave_chatroom", data=self._session_id)
+            self._user.finished_chat_time = datetime.now()
+
+        logger.debug(
+            format_parameterized_log_message(
+                "User disconnected from chatroom",
+                user_id=self._user.id,
+                chatroom_id=self._chatroom.id,
+                session_id=self._session_id,
+            )
         )
-    )
-    access.commit()
 
-    await socket_manager.emit(
-        "rephrasings_status",
-        dict(will_attempt=will_attempt_rephrasings),
-        to=session_id,
-        namespace=SOCKET_NAMESPACE_CHATROOM,
-    )
+    async def on_rephrasing_response(self, body) -> None:
+        message_id = body["message_id"]
+        message_body = body["body"]
+        message = await access.message(message_id)
 
-    if not will_attempt_rephrasings:
-        await socket_manager.emit(
-            f"new_message",
+        if (
+            message.sender_id != self._user.id
+            or message.chatroom_id != self._chatroom.id
+        ):
+            logger.warning(
+                format_parameterized_log_message(
+                    "User sent receiving rephrasing response for message they didn't "
+                    "send",
+                    user_id=self._user.id,
+                    chatroom_id=self._chatroom.id,
+                )
+            )
+            return
+
+        async with access.commit_after():
+            strategy = None
+            if rephrasing_id := body.get("rephrasing_id"):
+                rephrasing = await access.rephrasing(rephrasing_id)
+                strategy = rephrasing.strategy
+
+                if rephrasing.message_id != message.id:
+                    return
+
+                if rephrasing.body != message_body:
+                    rephrasing.edited_body = message_body
+
+                message.accepted_rephrasing_id = rephrasing.id
+            elif message.body != message_body:
+                message.edited_body = message_body
+            access.save_event(
+                self._user.id,
+                "rephrasing_response",
+                data={
+                    "rephrasing_id": rephrasing_id,
+                    "strategy": strategy,
+                    "edited_message": message.body != message_body,
+                },
+            )
+
+        await self._send_message_to_chatroom(message.selected_body)
+
+        logger.debug(
+            format_parameterized_log_message(
+                "User sent rephrasing response",
+                user_id=self._user.id,
+                chatroom_id=self._chatroom.id,
+                message_id=message.id,
+                rephrasing_id=rephrasing_id,
+                message_length=len(message_body),
+            )
+        )
+
+    async def on_typing(self) -> None:
+        # TODO: Determine whether this is going to lock up the database
+        await self._sio.emit(
+            "typing",
+            to=self._chatroom.id,
+            skip_sid=self._session_id,
+        )
+        async with access.commit_after():
+            access.save_event(self._user.id, "typing")
+
+    async def on_online(self) -> None:
+        await self._sio.emit(
+            "partner_status",
+            True,
+            to=self._chatroom.id,
+            skip_sid=self._session_id,
+        )
+
+    async def on_event(self, body) -> None:
+        if not (event_type := body.get("type")):
+            logger.warning(
+                format_parameterized_log_message(
+                    "User sent event with no type",
+                    user_id=self._user.id,
+                    chatroom_id=self._chatroom.id,
+                )
+            )
+            return
+        time = body.get("time")
+        if time:
+            if not isinstance(time, int):
+                logger.warning(
+                    format_parameterized_log_message(
+                        "User sent event with invalid timestamp",
+                        user_id=self._user.id,
+                        chatroom_id=self._chatroom.id,
+                    )
+                )
+                return
+            time = datetime.fromtimestamp(time / 1000)
+        data = body.get("data")
+        async with access.commit_after():
+            access.save_event(self._user.id, event_type, data=data, time=time)
+        logger.debug(
+            format_parameterized_log_message(
+                "User sent chatroom event",
+                user_id=self._user.id,
+                chatroom_id=self._chatroom.id,
+                event_type=event_type,
+            )
+        )
+
+    async def on_message(self, body) -> None:
+        # TODO: Break this method up
+
+        message_body = body["body"]
+
+        logger.debug(
+            format_parameterized_log_message(
+                "User sent message to chatroom",
+                user_id=self._user.id,
+                chatroom_id=self._chatroom.id,
+                message_length=len(message_body),
+            )
+        )
+
+        chatroom_messages = await access.chatroom_messages(
+            self._chatroom, select_users=True, select_rephrasings=True
+        )
+
+        # Count messages, not including anything with fewer than 4 words (just counting
+        # by spaces), a turn only happens if one user sends at least one message with at
+        # least 4 words, and we need 3 turns, or three alternating chunks of at least
+        # one message with at least 4 words. So we calculate turns and only send
+        # rephrasings if we have turns % 3 == 0. Probably a little expensive, but it
+        # seems fine. We'll rephrase the first message sent because the first two
+        # messages are input before the chat starts.
+
+        will_attempt_rephrasings = False
+        user_position = self._user.position.value
+        (
+            turn_count,
+            user_turn_count,
+            partner_turn_count,
+            last_turn_counted,
+            turns,
+        ) = calculate_turns(
+            [
+                {
+                    "position": message.user.position.value,
+                    "body": message.selected_body,
+                    # TODO: Figure out if this is an expensive operation (or maybe it's
+                    #  cached for us?)
+                    "rephrased": len(message.rephrasings) > 0,
+                }
+                for message in chatroom_messages
+            ],
+            user_position,
+        )
+        if self._user.receives_rephrasings:
+            message_is_min_length = (
+                len(message_body.split()) >= MIN_COUNTED_MESSAGE_WORD_COUNT
+            )
+
+            # Is this the first message in a new turn? That is, was the last message
+            # sent by the other user?
+            new_turn = (
+                chatroom_messages and self._user.id != chatroom_messages[-1].sender_id
+            )
+
+            # TODO: Explain this logic (it's pretty straightforward)
+            if message_is_min_length and (new_turn or not last_turn_counted):
+                user_turn_count += 1
+                will_attempt_rephrasings = (
+                    turn_count >= MIN_REPHRASING_TURNS
+                    and user_turn_count % REPHRASE_EVERY_N_TURNS == 0
+                )
+
+        async with access.commit_after():
+            # We end the conversation the turn AFTER the last turn we rephrase,
+            # to give the untreated user a chance to respond to the rephrasing.
+            # That's why we use partner_turn_count and _not_
+            # user.receives_rephrasings—we want it to be the untreated user who ends
+            # up ending the conversation
+            if (
+                partner_turn_count / REPHRASE_EVERY_N_TURNS
+            ) >= REQUIRED_REPHRASINGS and (
+                not self._user.receives_rephrasings
+                or self._user.in_control_conversation
+            ):
+                logger.debug(
+                    format_parameterized_log_message(
+                        "User reached required rephrasing count, updating chatroom "
+                        "status",
+                        user_id=self._user.id,
+                        chatroom_id=self._chatroom.id,
+                        user_turn_count=user_turn_count,
+                        receives_rephrasings=self._user.receives_rephrasings,
+                        in_control_conversation=self._user.in_control_conversation,
+                    )
+                )
+                self._chatroom.limit_reached = True
+
+            message = access.add_message(self._chatroom.id, self._user.id, message_body)
+
+            access.save_event(
+                self._user.id,
+                "sent_message",
+                data={
+                    "message_id": message.id,
+                    "will_attempt_rephrasings": will_attempt_rephrasings,
+                },
+            )
+
+        await self._sio.emit(
+            "rephrasings_status",
+            dict(will_attempt=will_attempt_rephrasings),
+            to=self._session_id,
+        )
+
+        # Give socket manager a chance to send the rephrasings status message
+        # TODO: Unclear that we need this—I think that things were blocking because
+        #  rephrasings were done in a blocking way
+        await asyncio.sleep(0.2)
+
+        # TODO: This is a horrible way to organize a function, makes it hard to
+        #  understand
+        if will_attempt_rephrasings:
+            await self._send_rephrasings(message, turns, user_turn_count)
+        else:
+            await self._send_message_to_chatroom(message_body)
+
+    async def _send_rephrasings(self, message, turns, user_turn_count) -> None:
+        user_position = self._user.position.value
+        # TODO: Figure out why we need a function to get this and do dependency
+        #  injection the right way instead
+        templates = get_templates()
+
+        last_turn_is_user = (
+            user_turn_count > 0 and turns[-1][0]["position"] == user_position
+        )
+
+        # 10 doesn't mean anything, it's just a number high enough that I imagine we'd
+        # never construct a template that uses that many turns.
+        template_turns = last_n_turns(turns, 10)
+
+        template_rephrasing_message = {
+            "position": user_position,
+            "body": message.selected_body,
+        }
+
+        if last_turn_is_user:
+            # Add user's message to existing turn
+            template_turns[-1].append(template_rephrasing_message)
+        else:
+            # Create new turn for user's message
+            template_turns.append([template_rephrasing_message])
+
+        async with access.commit_after():
+            # Time how long it takes to generate rephrasings
+            # (I'm sure this isn't accurate because we're in asyncland but it's helpful
+            # to get an idea)
+            start_time = time.perf_counter()
+            if not FAKE_REPHRASINGS:
+                rephrasings = [
+                    access.add_rephrasing(message.id, response, strategy)
+                    for strategy, response in (
+                        await generate_rephrasings(executor, templates, template_turns)
+                    ).items()
+                ]
+            else:
+                logger.debug(
+                    "FAKE_REPHRASINGS is set to true, sending fake rephrasings"
+                )
+                # TODO: Fix this awful hacky code, figure out how to inject this or
+                #  monkey patch it
+                # Wait a short amount of time to simulate network operation
+                await asyncio.sleep(random.random() * 2)
+                rephrasings = [
+                    access.add_rephrasing(message.id, "rephrasing 1", "strategy 1"),
+                    access.add_rephrasing(message.id, "rephrasing 2", "strategy 2"),
+                    access.add_rephrasing(message.id, "rephrasing 3", "strategy 3"),
+                ]
+            end_time = time.perf_counter()
+            logger.debug(
+                format_parameterized_log_message(
+                    "Generated rephrasings",
+                    user_id=self._user.id,
+                    chatroom_id=self._chatroom.id,
+                    rephrasing_count=len(rephrasings),
+                    total_seconds=f"{end_time - start_time:.2f}",
+                )
+            )
+
+            access.save_event(
+                self._user.id, "rephrasings_response", data={"message_id": message.id}
+            )
+
+        # We want to present rephrasings in a random order
+        random.shuffle(rephrasings)
+
+        await self._sio.emit(
+            "rephrasings_response",
             dict(
-                user_id=user.id,
-                message=message.body,
+                message_id=message.id,
+                body=message.body,
+                rephrasings=[{"id": r.id, "body": r.body} for r in rephrasings],
             ),
-            to=chatroom_id,
-            namespace=SOCKET_NAMESPACE_CHATROOM,
+            to=self._session_id,
         )
-        return
-
-    # Give socket manager a chance to send the notification message
-    await asyncio.sleep(0.2)
-
-    last_turn_is_user = (
-        user_turn_count > 0 and turns[-1][0]["position"] == user_position
-    )
-
-    # 10 doesn't mean anything, it's just a number high enough that I imagine we'd never
-    # construct a template that uses that many turns.
-    template_turns = last_n_turns(turns, 10)
-
-    template_rephrasing_message = {
-        "position": "oppose" if user.position is UserPosition.OPPOSE else "support",
-        "body": message.selected_body,
-    }
-
-    if last_turn_is_user:
-        template_turns[-1].append(template_rephrasing_message)
-    else:
-        template_turns.append([template_rephrasing_message])
-
-    # print()
-    # print("⭐️⭐️ Prompt ⭐️⭐️")
-    # print()
-    # print(sr.create_prompt(turns, sr.rephrasing_specs["validate"]))
-
-    rephrasings = [
-        models.Rephrasing(message_id=message.id, body=response)
-        for (strategy, response) in (
-            await generate_rephrasings(templates, template_turns)
-        ).items()
-    ]
-
-    access.session.add_all(rephrasings)
-    access.commit()
-
-    # We want to present rephrasings in a random order
-    random.shuffle(rephrasings)
-
-    await socket_manager.emit(
-        "rephrasings_response",
-        dict(
-            message_id=message.id,
-            body=message.body,
-            rephrasings=[{"id": r.id, "body": r.body} for r in rephrasings],
-        ),
-        to=session_id,
-        namespace=SOCKET_NAMESPACE_CHATROOM,
-    )
-
-
-@socket_manager.on("clear", namespace=SOCKET_NAMESPACE_CHATROOM)
-async def clear_chatroom(session_id):
-    from ..server import get_data_access
-
-    access = get_data_access()
-
-    if not (
-        user := await get_socket_session_user(
-            access, session_id, socket_manager.get_session, SOCKET_NAMESPACE_CHATROOM
+        logger.debug(
+            format_parameterized_log_message(
+                "Sent rephrasings to user",
+                user_id=self._user.id,
+                chatroom_id=self._chatroom.id,
+                message_id=message.id,
+                rephrasings=[r.id for r in rephrasings],
+            )
         )
-    ):
-        await redirect_to_waiting(session_id)
-        return
 
-    # get chatroom
-    chatroom_id = user.chatroom_id
+    async def _redirect_to_waiting(self, session_id) -> None:
+        await self._sio.emit("redirect", dict(to="waiting"), to=session_id)
 
-    chatroom = access.session.query(models.Chatroom).filter_by(id=chatroom_id).first()
-    if not chatroom:
-        await redirect_to_waiting(session_id)
-        return
-    for message in chatroom.messages:
-        access.session.delete(message)
+    async def _send_message_to_chatroom(self, message_body) -> None:
+        await self._sio.emit(
+            f"new_message",
+            dict(user_id=self._user.id, message=message_body),
+            to=self._chatroom.id,
+        )
+        logger.debug(
+            format_parameterized_log_message(
+                "Broadcasted message to chatroom",
+                user_id=self._user.id,
+                chatroom_id=self._chatroom.id,
+                message_length=len(message_body),
+            )
+        )
+        if self._chatroom.limit_reached:
+            await self._sio.emit("min_limit_reached", to=self._chatroom.id)
 
-    access.commit()
 
-    await socket_manager.emit(
-        f"clear", chatroom_id, namespace=SOCKET_NAMESPACE_CHATROOM
-    )
+# noinspection PyProtectedMember
+socket_manager._sio.register_namespace(
+    SessionSocketAsyncNamespace(ChatroomSocketSession, SOCKET_NAMESPACE_CHATROOM)
+)

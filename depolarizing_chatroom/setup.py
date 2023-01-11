@@ -1,5 +1,6 @@
-from .data.crud import build_prod_database
+import asyncio
 
+from .data.crud import build_prod_database
 
 if __name__ == "__main__":
     import argparse
@@ -12,4 +13,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    build_prod_database(args.force)
+    asyncio.run(build_prod_database(args.force))

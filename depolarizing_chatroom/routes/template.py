@@ -2,17 +2,17 @@ import html
 import json
 import re
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
-from pydantic import BaseModel
 from fastapi.requests import Request
+from pydantic import BaseModel
 
-from ..server import app, TemplateManager
-from .. import suggest_rephrasings as sr
+from .. import rephrasings as sr
 from ..data.template import (
     HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork,
 )
-from ..suggest_rephrasings import STRATEGY_LOGIT_BIASES, BASE_LOGIT_BIASES
+from ..rephrasings import BASE_LOGIT_BIASES, STRATEGY_LOGIT_BIASES
+from ..server import TemplateManager, app
 from ..util import calculate_turns, last_n_turns
 
 
@@ -75,9 +75,13 @@ def template():
 def render_template(template_manager: TemplateManager, data: Any) -> str:
     data = [item for item in data["data"] if item["visible"]]
 
-    turn_count, user_turn_count, last_turn_counted, turns = calculate_turns(
-        data, data[-1]["position"]
-    )
+    (
+        turn_count,
+        user_turn_count,
+        partner_turn_count,
+        last_turn_counted,
+        turns,
+    ) = calculate_turns(data, data[-1]["position"])
 
     template_turns = last_n_turns(turns, 10)
 

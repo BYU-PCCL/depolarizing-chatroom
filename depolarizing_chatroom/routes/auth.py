@@ -3,9 +3,11 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
-from ..server import app, DataAccess, get_data_access, get_user_from_auth_code
 from ..data import models
+from ..data.crud import access
 from ..data.models import UserPosition
+from ..logger import logger, format_parameterized_log_message
+from ..server import app, get_user_from_auth_code
 
 
 class LoginBody(BaseModel):
@@ -13,8 +15,8 @@ class LoginBody(BaseModel):
 
 
 class SignupBody(BaseModel):
-    linkId: str
-    treatment: int
+    respondentId: str
+    position: UserPosition
 
 
 class TestSignupBody(BaseModel):
@@ -24,70 +26,64 @@ class TestSignupBody(BaseModel):
     applyTreatment: bool
 
 
+class UserUpdateBody(BaseModel):
+    leaveReason: Optional[str]
+
+
 @app.get("/user")
-def user(user: models.User = Depends(get_user_from_auth_code)) -> dict:
-    return {**user.__dict__, "post_survey_url": user.post_survey_url}
+async def user(user: models.User = Depends(get_user_from_auth_code)) -> dict:
+    return {
+        **user.__dict__,
+        "post_survey_url": user.post_chat_url,
+        "no_chat_url": user.no_chat_url,
+    }
+
+
+@app.put("/user")
+async def user(
+    body: UserUpdateBody, user: models.User = Depends(get_user_from_auth_code)
+) -> dict:
+    async with access.commit_after():
+        if body.leaveReason:
+            user.leave_reason = body.leaveReason
+        access.save_event(user.id, "left_early", data=body.leaveReason)
+    return {"status": "ok"}
 
 
 @app.post("/login")
-def post_login(
-    body: LoginBody,
-    access: DataAccess = Depends(get_data_access),
-) -> dict:
-    # TODO: if change login logic (e.g. password) will need to change if logging in,
-    #  check if email is real
-
-    if not (user := access.process_login(body.token)):
-        raise HTTPException(status_code=401, detail="Invalid sign in.")
+async def post_login(body: LoginBody) -> dict:
+    async with access.commit_after():
+        if not await access.process_login(body.token):
+            raise HTTPException(status_code=401, detail="Invalid sign in.")
 
     return {"status": "ok"}
 
 
 @app.post("/signup")
-def post_signup(
-    body: SignupBody,
-    access: DataAccess = Depends(get_data_access),
-) -> dict:
-    access.process_signup(body.linkId, body.treatment)
-    return {"status": "ok"}
-
-
-@app.post("/test-signup")
-def post_test_signup(
-    body: TestSignupBody,
-    access: DataAccess = Depends(get_data_access),
-) -> dict:
-    position = (
-        UserPosition.OPPOSE
-        if body.position.lower() == "oppose"
-        else UserPosition.SUPPORT
-    )
-
-    # This doesn't account for 3 and 6, but those treatments contain information only
-    # used in the matching process, which we skip by explicitly pairing with another
-    # user.
-    treatment = (
-        1
-        + (3 if position is UserPosition.OPPOSE else 0)
-        + (1 if not body.applyTreatment else 0)
-    )
-
-    if not (signup_user := access.process_signup(body.username, treatment)):
-        raise HTTPException(
-            status_code=400, detail="Test signup already performed. Try signing in."
+async def post_signup(body: SignupBody) -> dict:
+    async with access.commit_after():
+        user = await access.process_signup(body.respondentId, body.position)
+    if user:
+        # We have to do this after processing the signup because the user id is only
+        # generated after the user is added to the database.
+        async with access.commit_after():
+            access.save_event(user.id, "signup")
+    else:
+        logger.warning(
+            format_parameterized_log_message(
+                "Tried to create new user with existing respondent ID",
+                respondent_id=body.respondentId,
+            )
         )
+        # TODO: Consider handling this with some kind of error
+        return {"status": "ok"}
 
-    # Pair with an existing user
-    if body.pairWith:
-        pair_with_user = (
-            access.session.query(models.User)
-            .filter_by(response_id=body.pairWith)
-            .first()
+    logger.info(
+        format_parameterized_log_message(
+            "Created new user",
+            user_id=user.id,
+            respondent_id=body.respondentId,
+            position=body.position.value,
         )
-        if pair_with_user:
-            chatroom = access.add_chatroom("Gun Control in America: More or Less?")
-            pair_with_user.chatroom_id = chatroom.id
-            signup_user.chatroom_id = chatroom.id
-            access.session.commit()
-
+    )
     return {"status": "ok"}

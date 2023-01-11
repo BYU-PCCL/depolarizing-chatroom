@@ -1,9 +1,17 @@
+import asyncio
 import os
-import re
 from collections import defaultdict
+from concurrent.futures import Executor
+from typing import Tuple
 
 import numpy as np
 import openai
+
+from depolarizing_chatroom.constants import MAX_REPHRASING_ATTEMPTS
+from depolarizing_chatroom.data.template import (
+    HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork,
+)
+from depolarizing_chatroom.logger import logger
 
 if OPENAPI_API_KEY := os.getenv("OPENAI_API_KEY"):
     openai.api_key = OPENAPI_API_KEY
@@ -47,9 +55,6 @@ BASE_LOGIT_BIASES = {
 
 
 def rephrasings_generator(prompt, n=1, logit_bias=None, request_logprobs=False):
-    print("✨✨✨ PROMPT ✨✨✨")
-    print(prompt)
-    print("✨✨✨ END PROMPT ✨✨✨")
     response = openai.Completion.create(
         engine="text-davinci-002",
         prompt=prompt,
@@ -94,9 +99,51 @@ def collect_rephrasings(rephrasing_generator):
     return rephrasing_strings, list(logprobs.values())
 
 
-def print_single_rephrasing_response(response):
+def generate_rephrasing_task(prompt, strategy) -> Tuple[str, str]:
+    response = None
+    for i in range(MAX_REPHRASING_ATTEMPTS):
+        try:
+            (response,), _ = collect_rephrasings(
+                rephrasings_generator(
+                    prompt,
+                    logit_bias={
+                        **(STRATEGY_LOGIT_BIASES.get(strategy, {})),
+                        **BASE_LOGIT_BIASES,
+                    },
+                    n=1,
+                )
+            )
+            break
+        except Exception:
+            logger.exception("Error generating rephrasings")
+    return strategy, response
+
+
+async def generate_rephrasings(executor: Executor, templates, turns):
+    prompts = {
+        strategy: template.render(
+            HorribleConfusingListWrapperThatMakesTemplateAccessPatternWork(turns)
+        )
+        for (strategy, template) in templates.items()
+    }
+
+    # Run in executor to avoid blocking the event loop
+    return dict(
+        await asyncio.gather(
+            *[
+                asyncio.get_event_loop().run_in_executor(
+                    executor, generate_rephrasing_task, prompt, strategy
+                )
+                for (strategy, prompt) in prompts.items()
+            ]
+        )
+    )
+
+
+def print_single_rephrasing_response(response) -> None:
     all_probs = []
     print("✨✨✨")
+    has_probs = False
     for item in response:
         if has_probs := len(item[0]) == 2:
             (_, item), probs = item
