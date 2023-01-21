@@ -141,10 +141,6 @@ class WaitingRoomSocketSession(SocketSession):
         # End running transaction to explicitly start a new one
         await access.session.commit()
 
-        # Explicitly create a new transaction because this is very racey
-        # TODO TODO TODO NOTE NOTE NOTE NOTE NOTE NOTE
-        #  When we do optimistic concurrency control here, defer to other updates and
-        #  ROLL BACK CHANGES TO SAVEPOINT (I THINK)
         try:
             async with access.session.begin():
                 # Update user at beginning of this transaction
