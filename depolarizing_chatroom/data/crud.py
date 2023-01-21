@@ -247,11 +247,7 @@ async def build_prod_database(force=False) -> None:
     Build production database
     """
     SQLALCHEMY_DATABASE_URL = os.getenv("DB_URI") or "sqlite+aiosqlite:///"
-    engine = create_async_engine(
-        SQLALCHEMY_DATABASE_URL,
-        future=True,
-        echo=True
-    )
+    engine = create_async_engine(SQLALCHEMY_DATABASE_URL, future=True, echo=True)
     async with engine.begin() as connection:
         await connection.run_sync(models.Base.metadata.create_all)
 

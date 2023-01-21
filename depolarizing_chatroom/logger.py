@@ -12,6 +12,7 @@ logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 
+
 def format_parameterized_log_message(message: str, **kwargs) -> str:
     params_items = [f"{k}={repr(v)}" for k, v in kwargs.items()]
     params_str = f' [{", ".join(params_items)}]' if kwargs else ""
