@@ -2,17 +2,16 @@ import os
 import random
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import List, Optional, Any
-import random
+from typing import Any, List, Optional
 
+from fastapi_async_sqlalchemy import db
 from sqlalchemy import and_
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from . import models
 from .database import Base
-from fastapi_async_sqlalchemy import db
 from .models import UserPosition
 
 

@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Optional, Type, List
+from typing import Any, Callable, Dict, List, Optional, Type
 
 import socketio
 from fastapi_async_sqlalchemy import db
@@ -7,7 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .data import models
 from .data.crud import access
-from .logger import logger, format_parameterized_log_message
+from .logger import format_parameterized_log_message, logger
 
 
 class RouteIgnoringMiddlewareWrapper(BaseHTTPMiddleware):

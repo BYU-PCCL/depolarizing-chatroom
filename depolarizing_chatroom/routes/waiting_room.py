@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import Depends
-from sqlalchemy import update, insert, case, tuple_
+from sqlalchemy import case, insert, tuple_, update
 from sqlalchemy.orm.exc import StaleDataError
 
 from ..constants import SOCKET_NAMESPACE_WAITING_ROOM

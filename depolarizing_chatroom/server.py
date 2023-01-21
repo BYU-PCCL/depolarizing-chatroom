@@ -23,8 +23,8 @@ from .data.crud import access
 # from .data.database import SessionLocal, engine
 from .data.template import TemplateManager, load_templates_from_directory
 from .exceptions import AuthException
-from .logger import logger, format_parameterized_log_message
-from .socketio import get_all_socketio_sessions, RouteIgnoringMiddlewareWrapper
+from .logger import format_parameterized_log_message, logger
+from .socketio import RouteIgnoringMiddlewareWrapper, get_all_socketio_sessions
 
 load_dotenv(path.join(path.dirname(__file__), ".env"))
 

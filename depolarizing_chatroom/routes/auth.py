@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from ..data import models
 from ..data.crud import access
 from ..data.models import UserPosition
-from ..logger import logger, format_parameterized_log_message
+from ..logger import format_parameterized_log_message, logger
 from ..server import app, get_user_from_auth_code
 
 

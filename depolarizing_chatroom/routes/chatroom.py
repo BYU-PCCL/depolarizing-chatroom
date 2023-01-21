@@ -29,7 +29,6 @@ from ..server import (
 from ..socketio import SessionSocketAsyncNamespace, SocketSession
 from ..util import calculate_turns, last_n_turns
 
-
 # Really hacky, shouldn't be here, helps us avoid racking up OpenAI API calls
 # during load testing
 FAKE_REPHRASINGS = os.environ.get("FAKE_REPHRASINGS", "0").lower() == "1"

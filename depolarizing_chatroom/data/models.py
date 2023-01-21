@@ -2,6 +2,7 @@ import enum
 from typing import Optional
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     DateTime,
@@ -10,7 +11,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    JSON,
 )
 from sqlalchemy.orm import relationship
 
