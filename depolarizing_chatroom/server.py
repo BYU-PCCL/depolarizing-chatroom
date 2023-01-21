@@ -132,10 +132,6 @@ async def startup_event() -> None:
     executor = ThreadPoolExecutor()
     asyncio.get_running_loop().create_task(waiting_room_timeout_loop())
 
-    # async with db():
-    #     async with db.session.begin() as session:
-    #         # await session.run_sync(models.Base.metadata.create_all)
-
 
 def get_templates() -> Dict[str, TemplateManager]:
     return templates
