@@ -1,5 +1,4 @@
 import React from "react";
-import EditableChatMessage from "./EditableChatMessage";
 
 function EditableDataList({
   data,

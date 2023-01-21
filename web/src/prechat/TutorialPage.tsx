@@ -4,6 +4,9 @@ import TutorialRephrasingsModal from "./TutorialRephrasingsModal";
 import ChatMessageList from "../common/ChatMessageList";
 import { Link } from "react-router-dom";
 import TypingIndicatorBubble from "../common/TypingIndicatorBubble";
+import "../common/button.css";
+import { useLiveWaitingRoom } from "./hooks";
+import { ChatMessageState } from "../common/ChatMessage";
 
 interface TutorialMessage {
   type: string;
@@ -16,8 +19,7 @@ interface TutorialMessage {
 interface Message {
   body: string;
   time?: number;
-  tutorial?: boolean;
-  isSender: boolean;
+  state: ChatMessageState;
 }
 
 const TUTORIAL_MESSAGES: TutorialMessage[] = [
@@ -63,7 +65,7 @@ const TUTORIAL_MESSAGES: TutorialMessage[] = [
   },
   {
     type: "message",
-    body: "You can see your message below, along with several alternatives.",
+    body: "You can see your message, along with several alternatives.",
     delay: 2000,
   },
   {
@@ -126,12 +128,7 @@ const TUTORIAL_MESSAGES: TutorialMessage[] = [
   },
   {
     type: "message",
-    body: "Now that you've practiced, click 'find a chat' below to be paired with a chat partner. Please make sure to stay online as we find someone who disagrees with you on gun control.",
-    delay: 2000,
-  },
-  {
-    type: "message",
-    body: "This will likely take a few minutes. You will be paid for your waiting time.",
+    body: "Now that you've practiced, click 'proceed' below to get started on your chat with your partner. The next thing we will ask you to do is explain your position on gun regulation and then your chat with your partner will begin.",
     delay: 2000,
   },
   {
@@ -140,9 +137,9 @@ const TUTORIAL_MESSAGES: TutorialMessage[] = [
 ];
 
 const EXAMPLE_REPRHASINGS = [
-  "Here is an alternative to what you said.",
-  "Or, a second alternative.",
-  "You could say this too, if you like.",
+  "You could say this.",
+  "Or you could say this.",
+  "Here's a third alternative.",
 ];
 
 function TutorialPage() {
@@ -167,6 +164,10 @@ function TutorialPage() {
 
   const chatMessagesElement = useRef<HTMLDivElement>(null);
 
+  // This may seem a little overkill, but we need to let our partner know we're
+  // still online while they're waiting for us to finish
+  useLiveWaitingRoom("tutorial");
+
   useEffect(() => {
     const message = TUTORIAL_MESSAGES[tutorialMessageIndex];
     let isExampleMessage: boolean;
@@ -182,8 +183,7 @@ function TutorialPage() {
           ...messages,
           {
             body: message.body ?? "",
-            isSender: false,
-            tutorial: !isExampleMessage,
+            state: isExampleMessage ? "received" : "tutorial",
           },
         ]
       );
@@ -251,8 +251,7 @@ function TutorialPage() {
       ...messages,
       {
         body: message,
-        isSender: true,
-        tutorial: false,
+        state: "sender",
         time: Date.now(),
       },
     ]);
@@ -287,21 +286,24 @@ function TutorialPage() {
       <span className="bg-green-600 text-white px-2 py-1 rounded-lg mb-3 text-2xl">
         Tutorial
       </span>
-      <h1 className="text-4xl mb-10">Learn how to use our chatroom</h1>
-      <div className="flex p-8 flex-col h-full border border-green-600 rounded-xl w-full bg-[#f8fefc]">
-        <div className="flex rounded-xl flex-1 flex-col w-full h-full relative">
+      <h1 className="text-4xl mb-6 sm:mb-10">Learn how to use our chatroom</h1>
+      <div className="flex -mx-4 -mb-4 sm:mx-0 sm:mb-0 p-3 sm:p-8 flex-col h-full border-t sm:border border-green-600 sm:rounded-2xl bg-[#f8fefc] w-[calc(100%_+_2rem)] sm:w-full">
+        <div className="flex sm:rounded-2xl flex-1 flex-col w-full h-full relative">
           <div
             ref={chatMessagesElement}
-            className="flex-1 basis-0 overflow-scroll py-9 -my-8 px-7 -mx-7 mb-0"
+            className="flex-1 basis-0 overflow-scroll px-4 -mx-4 -my-3 pb-9 pt-3 mb-0 sm:py-9 sm:-my-8 sm:px-7 sm:-mx-7 sm:mb-0"
           >
             <ChatMessageList messages={tutorialMessages} showTimes={false} />
             {showingPairButton && (
-              <div className="mt-6 mb-0 flex justify-center">
+              <div className="mb-4 sm:-mt-3 sm:mb-0 flex justify-center">
                 <Link
-                  className="transition rounded-lg px-4 py-3 text-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-400 text-white"
-                  to="/waiting"
+                  className="transition rounded-lg px-4 py-2 text-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-400 flex gap-2 text-white hero-button"
+                  to="/view"
                 >
-                  Find a chat
+                  <p>Proceed</p>
+                  <span className="material-icons text-xl -mr-1 hero-button-arrow">
+                    arrow_forward
+                  </span>
                 </Link>
               </div>
             )}
@@ -310,7 +312,7 @@ function TutorialPage() {
             <TypingIndicatorBubble
               fill={
                 typingBubbleMessageType === "tutorial"
-                  ? "green-800"
+                  ? "green-600"
                   : "gray-500"
               }
               background={
@@ -322,7 +324,7 @@ function TutorialPage() {
             />
           </div>
         </div>
-        <div className="border-t border-green-200 pt-5 w-full flex gap-4">
+        <div className="border-t border-green-200 pt-3 sm:pt-6 w-full flex gap-4">
           <input
             className="border border-gray-300 rounded-md flex-1 px-3"
             value={composingMessage}
@@ -332,13 +334,14 @@ function TutorialPage() {
               enableResponse ? "Type a message" : "Tutorial in progress..."
             }
             disabled={!enableResponse}
+            size={1}
           ></input>
           <button
-            className="rounded-full bg-blue-600 px-3.5 text-center drop-shadow-md hover:bg-blue-500 active:bg-blue-400 transition disabled:hover:bg-blue-300 disabled:bg-blue-300 disabled:drop-shadow-none"
+            className="rounded-full bg-blue-600 px-3.5 text-center hover:bg-blue-500 active:bg-blue-400 transition disabled:hover:bg-blue-300 disabled:bg-blue-300"
             disabled={!enableResponse}
             onClick={sendTutorialMessage}
           >
-            <span className="material-icons select-none p-2 text-white text-2xl">
+            <span className="material-icons select-none p-1.5 text-white text-2xl">
               send
             </span>
           </button>

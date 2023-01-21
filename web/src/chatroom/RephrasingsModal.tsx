@@ -1,6 +1,6 @@
 import ComposeMessage from "./ComposeMessage";
 import Modal from "react-modal";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 const customModalStyles = {
   content: {
@@ -11,7 +11,7 @@ const customModalStyles = {
     marginRight: "-50%",
     transform: "translate(-50%, -50%)",
     width: "min(700px, 90vw)",
-    borderRadius: "10px",
+    borderRadius: "15px",
   },
 };
 
@@ -29,7 +29,6 @@ function RephrasingsModal({
   onSendRephrasing?: (body: string, index: number) => void;
   templateOutdated?: boolean;
 }) {
-  let modalContent = null;
   const rephrasingsContainerRef = useRef<HTMLDivElement>(null);
   const loadingPanelRef = useRef<HTMLDivElement>(null);
   const rephrasingsPanelRef = useRef<HTMLDivElement>(null);
@@ -43,14 +42,14 @@ function RephrasingsModal({
     ) {
       return;
     }
-    console.log(rephrasingsVisible);
-
     const scrollHeightTarget = rephrasingsVisible
       ? rephrasingsPanelRef.current
       : loadingPanelRef.current;
 
-    rephrasingsContainerRef.current.style.height = `${scrollHeightTarget.scrollHeight}px`;
-  }, [rephrasings]);
+    const height = scrollHeightTarget.scrollHeight;
+
+    rephrasingsContainerRef.current.style.height = `${height}px`;
+  }, [rephrasingsVisible, rephrasings]);
 
   useEffect(() => {
     updateContainerHeight();
@@ -63,20 +62,22 @@ function RephrasingsModal({
       style={customModalStyles}
       contentLabel="Rephrasings Modal"
     >
-      <div className="w-full py-3 px-2">
-        <div className="flex gap-3 center pb-4 -mt-2 border-b items-center">
-          <span className="material-icons text-2xl">edit</span>
-          <p>Click any message to edit before sending.</p>
+      <div className="-m-1.5 sm:m-0 sm:py-3 sm:px-2">
+        <div className="flex gap-2 sm:gap-3 center pb-3 sm:pb-4 border-b items-center mb-3 sm:mb-6 sm:-mt-2">
+          <span className="material-icons text-xl sm:text-2xl">edit</span>
+          <p className="text-sm sm:text-base">
+            Click any message to edit before sending.
+          </p>
         </div>
-        <h1 className="text-2xl my-6">Your message</h1>
+        <h1 className="text-xl sm:text-2xl mb-3 sm:mb-6">Your message</h1>
         <ComposeMessage
           body={original}
           onSend={onSendOriginal}
           colors={["black", "black", "black"]}
         />
-        <div className="my-6 flex justify-between">
+        <div className="my-3 sm:my-6 flex justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl">Some alternatives</h1>
+            <h1 className="text-xl sm:text-2xl">Some alternatives</h1>
           </div>
         </div>
         <div
@@ -109,7 +110,7 @@ function RephrasingsModal({
           </div>
           <div
             className={
-              "w-full flex flex-col gap-3 absolute top-0 transition-opacity" +
+              "w-full flex flex-col gap-2 sm:gap-3 absolute top-0 transition-opacity" +
               (rephrasingsVisible ? "" : " opacity-0 pointer-events-none")
             }
             ref={rephrasingsPanelRef}

@@ -1,5 +1,4 @@
 import React from "react";
-import TemplateEditor from "./TemplateEditor";
 
 function SuggestedTemplatesList({
   data,

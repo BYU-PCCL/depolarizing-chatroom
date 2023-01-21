@@ -1,5 +1,4 @@
 import React from "react";
-import EditableChatMessage from "./EditableChatMessage";
 
 function TemplateCompletionsList({ completions }: { completions: string[] }) {
   return (

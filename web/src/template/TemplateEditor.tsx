@@ -207,7 +207,10 @@ function TemplateEditor({
   ) {
     monacoRef.current = monaco;
     editorRef.current = editor;
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function() {});
+    editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+      function () {}
+    );
     registerSemanticTokensProvider();
   }
 

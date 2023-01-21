@@ -1,0 +1,9 @@
+.hero-button > .hero-button-arrow {
+  background-size: contain;
+  transition: transform 0.3s ease;
+  transform: translateX(-0.06rem);
+}
+
+.hero-button:hover > .hero-button-arrow {
+  transform: translateX(0.06rem);
+}

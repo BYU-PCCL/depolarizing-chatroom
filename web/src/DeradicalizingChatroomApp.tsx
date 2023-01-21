@@ -3,13 +3,15 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import TemplatePage from "./template/TemplatePage";
 import ChatroomPage from "./chatroom/ChatroomPage";
 import NoAuthPage from "./NoAuthPage";
-import WaitingRoomPage from "./tutorial/WaitingRoomPage";
+import WaitingRoomPage from "./prechat/WaitingRoomPage";
 import { useMutation, QueryClientProvider, QueryClient } from "react-query";
 import TestSignupPage from "./TestSignupPage";
-import { getEndpointUrl, setAuthCode } from "./api/apiUtils";
-import TutorialPage from "./tutorial/TutorialPage";
-import IntroPage from "./tutorial/IntroPage";
-import ViewPromptPage from "./tutorial/ViewPromptPage";
+import { getAuthCode, getEndpointUrl, setAuthCode } from "./api/apiUtils";
+import TutorialPage from "./prechat/TutorialPage";
+import IntroPage from "./prechat/IntroPage";
+import ViewPromptPage from "./prechat/ViewPromptPage";
+import DashboardPage from "./DashboardPage";
+import LoadingPage from "./common/LoadingPage";
 
 const queryClient = new QueryClient();
 
@@ -17,28 +19,47 @@ function DeradicalizingChatroomApp() {
   return (
     <QueryClientProvider client={queryClient}>
       <Routes>
-        {/*<Route path="/" element={<Home />} />*/}
-        <Route path="/intro" element={<IntroPage />} />
-        <Route path="/view" element={<ViewPromptPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/template" element={<TemplatePage />} />
-        <Route path="/tutorial" element={<TutorialPage />} />
+        <Route
+          path="/intro"
+          element={
+            <RequireAuth>
+              <IntroPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/view"
+          element={
+            <RequireAuth>
+              <ViewPromptPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/tutorial"
+          element={
+            <RequireAuth>
+              <TutorialPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/chatroom"
-          // element={
-          //   <RequireAuth>
-          //     <TutorialPage />
-          //   </RequireAuth>
-          // }
-          element={<ChatroomPage />}
+          element={
+            <RequireAuth>
+              <ChatroomPage />
+            </RequireAuth>
+          }
         />
         <Route
           path="/waiting"
-          // element={
-          //   <RequireAuth>
-          //     <TutorialPage />
-          //   </RequireAuth>
-          // }
-          element={<WaitingRoomPage />}
+          element={
+            <RequireAuth>
+              <WaitingRoomPage />
+            </RequireAuth>
+          }
         />
         <Route path="/noauth" element={<NoAuthPage />} />
         <Route path="/test-signup" element={<TestSignupPage />} />
@@ -104,18 +125,18 @@ function LoginRoute() {
 
 function StartRoute() {
   // Get token from the URL
-  const [linkId, setLinkId] = useState(
-    new URLSearchParams(window.location.search).get("linkID")
+  const [respondentId, setRespondentId] = useState(
+    new URLSearchParams(window.location.search).get("respondentID")
   );
 
   // Get treatment code from the URL
-  const [treatment, setTreatment] = useState(
-    new URLSearchParams(window.location.search).get("treatment")
+  const [position, setPosition] = useState(
+    new URLSearchParams(window.location.search).get("position")
   );
 
   // Use react query to mutate /signup
   const mutation = useMutation(async () => {
-    if (!linkId || !treatment) {
+    if (!respondentId || !position) {
       return;
     }
 
@@ -124,46 +145,44 @@ function StartRoute() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ linkId, treatment }),
+      body: JSON.stringify({ respondentId, position }),
     });
 
     if (!fetchResponse.ok) {
       throw new Error(fetchResponse.statusText);
     }
 
-    await setAuthCode(linkId);
+    await setAuthCode(respondentId);
     return fetchResponse.json();
   });
 
   // If mutation is successful, navigate to chatroom
   useEffect(() => {
-    if (!linkId || !treatment) {
+    if (!respondentId || !position) {
       return;
     }
 
     mutation.mutate();
-  }, [mutation.mutate, linkId, treatment]);
+  }, [mutation.mutate, respondentId, position]);
 
   return mutation.isLoading ? (
-    <div>Starting chatroom...</div>
+    <LoadingPage />
   ) : (
-    // <Navigate to={mutation.isError ? "/noauth" : "/waiting"} replace />
     <>
       {mutation.isError && <Navigate to="/noauth" replace />}
-      {/*{mutation.isSuccess && <Navigate to="/waiting" replace />}*/}
       {mutation.isSuccess && <Navigate to="/intro" replace />}
     </>
   );
 }
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  const authToken = localStorage.getItem("token");
+  const authToken = getAuthCode();
 
   if (!authToken) {
     return <Navigate to="/noauth" replace />;
   }
 
-  return <div>{children}</div>;
+  return children;
 }
 
 export default DeradicalizingChatroomApp;
