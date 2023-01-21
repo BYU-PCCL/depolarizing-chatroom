@@ -1,12 +1,18 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, TypedDict
 
 from .constants import MIN_COUNTED_MESSAGE_WORD_COUNT
-from .data import models
 
 
+class Message(TypedDict):
+    body: str
+    position: str
+    rephrased: bool
+
+
+# TODO: Fix these type hints
 def calculate_turns(
-    messages: List[Dict[str, Any]], current_position: str
-) -> Tuple[int, int, int, bool, List[List[models.Message]]]:
+    messages: List[Message], current_position: str
+) -> Tuple[int, int, int, bool, List[List[Message]]]:
     turns = []
     # Note that this number, confusingly, is not the length of the yielded list.
     # TODO: Future me: why not?
