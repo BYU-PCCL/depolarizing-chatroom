@@ -178,4 +178,6 @@ async def auth_exception_handler(*_) -> RedirectResponse:
     return RedirectResponse("/login")
 
 
+# We import these here to avoid circular imports
+# noinspection PyUnresolvedReferences
 from . import routes
