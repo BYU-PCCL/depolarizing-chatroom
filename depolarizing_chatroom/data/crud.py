@@ -247,16 +247,10 @@ async def build_prod_database(force=False) -> None:
     Build production database
     """
     SQLALCHEMY_DATABASE_URL = os.getenv("DB_URI") or "sqlite+aiosqlite:///"
-    # if (db_path := Path("chatrooms.sqlite3")).exists():
-    #     if force:
-    #         db_path.unlink()
-    #     else:
-    #         raise FileExistsError("Database already exists.")
     engine = create_async_engine(
         SQLALCHEMY_DATABASE_URL,
         future=True,
         echo=True
-        # , connect_args={"check_same_thread": False}
     )
     async with engine.begin() as connection:
         await connection.run_sync(models.Base.metadata.create_all)
