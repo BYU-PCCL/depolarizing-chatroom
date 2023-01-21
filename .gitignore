@@ -2,3 +2,10 @@ venv/
 .idea/
 *.db
 *.sqlite3
+__pycache__/
+.DS_Store
+
+# JSONs that unfortunately ended up in the root
+validate.json
+restate.json
+polite.json
