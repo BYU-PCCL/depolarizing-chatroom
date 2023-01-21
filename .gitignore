@@ -16,3 +16,4 @@ notes/
 
 # Contains sensitive env variables
 run-all.sh
+run-test.sh
