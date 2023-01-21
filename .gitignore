@@ -4,6 +4,7 @@ venv/
 *.sqlite3
 __pycache__/
 .DS_Store
+*.egg-info/
 
 # JSONs that unfortunately ended up in the root
 validate.json
