@@ -59,7 +59,6 @@ def rephrasings_generator(prompt, n=1, logit_bias=None, request_logprobs=False):
         engine="text-davinci-002",
         prompt=prompt,
         max_tokens=400,
-        # temperature=1,
         top_p=0.95,
         stream=True,
         n=n,
