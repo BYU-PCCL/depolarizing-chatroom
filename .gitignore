@@ -10,3 +10,6 @@ __pycache__/
 validate.json
 restate.json
 polite.json
+
+# Avoid committing any notes @vinhowe has made
+notes/
