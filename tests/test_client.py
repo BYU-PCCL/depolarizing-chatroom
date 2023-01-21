@@ -8,21 +8,18 @@ import uuid
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import aiohttp
-from typing import AsyncGenerator, List, Dict, Any, Optional
-
+import pytest
 import pytest_asyncio
 import socketio
 import uvicorn
-import pytest
-
 from sqlalchemy.ext.asyncio import create_async_engine
 from starlette.requests import Request
 
-import depolarizing_chatroom.server
 import depolarizing_chatroom.data.models as models
-
+import depolarizing_chatroom.server
 
 WAITING_ROOM_NAMESPACE = "/waiting-room"
 CHATROOM_NAMESPACE = "/chatroom"
