@@ -127,6 +127,7 @@ def template(user_id, body: ParseTemplateBody):
 
     save_user_template(user_id, user_data)
 
+    # TODO: Decide what to do with this—why is this commented out? what does it do?
     # try:
     #     parsed_template = TemplateManager.parse_template(
     #         body.value, jinja2.Environment()
