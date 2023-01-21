@@ -57,18 +57,6 @@ _API_KEY_NAME = "X-AUTH-CODE"
 _api_key_header = APIKeyHeader(name=_API_KEY_NAME, auto_error=False)
 
 
-# def get_db() -> SessionLocal:
-#     session = SessionLocal()
-#     try:
-#         yield session
-#     finally:
-#         session.close()
-#
-#
-# def get_data_access() -> DataAccess:
-#     return DataAccess(next(get_db()))
-
-
 async def waiting_room_timeout_loop() -> None:
     # noinspection PyProtectedMember
     sio = socket_manager._sio
