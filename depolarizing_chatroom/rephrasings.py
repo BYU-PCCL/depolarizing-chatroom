@@ -20,6 +20,7 @@ else:
         openai.api_key = f.read().strip()
 
 
+# These biases are @tsor13's work, ask him for more info
 STRATEGY_LOGIT_BIASES = {
     "restate": {
         "1833": -1.5,  # ' understand'
