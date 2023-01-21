@@ -13,3 +13,6 @@ polite.json
 
 # Avoid committing any notes @vinhowe has made
 notes/
+
+# Contains sensitive env variables
+run-all.sh
