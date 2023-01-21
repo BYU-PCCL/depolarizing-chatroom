@@ -13,7 +13,7 @@ from ..data.crud import access
 from ..data.models import UserTreatment
 from ..logger import format_parameterized_log_message, logger
 from ..server import app, get_user_from_auth_code, socket_manager
-from ..socketio import SessionSocketAsyncNamespace, SocketSession
+from ..socketio_util import SessionSocketAsyncNamespace, SocketSession
 
 
 @app.get("/waiting-status")

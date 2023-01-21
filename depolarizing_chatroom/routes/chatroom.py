@@ -26,7 +26,7 @@ from ..server import (
     get_user_from_auth_code,
     socket_manager,
 )
-from ..socketio import SessionSocketAsyncNamespace, SocketSession
+from ..socketio_util import SessionSocketAsyncNamespace, SocketSession
 from ..util import calculate_turns, last_n_turns
 
 # Really hacky, shouldn't be here, helps us avoid racking up OpenAI API calls

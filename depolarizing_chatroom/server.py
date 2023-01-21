@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from os import path
 from typing import Dict
 
-import socketio
+import socketio_util
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,7 +24,7 @@ from .data.crud import access
 from .data.template import TemplateManager, load_templates_from_directory
 from .exceptions import AuthException
 from .logger import format_parameterized_log_message, logger
-from .socketio import RouteIgnoringMiddlewareWrapper, get_all_socketio_sessions
+from .socketio_util import RouteIgnoringMiddlewareWrapper, get_all_socketio_sessions
 
 load_dotenv(path.join(path.dirname(__file__), ".env"))
 

@@ -1,8 +1,9 @@
 from typing import Any, Callable, Dict, List, Optional, Type
 
-import socketio
+# TODO: Rename this file to socketio_util
+import socketio_util
 from fastapi_async_sqlalchemy import db
-from socketio import AsyncNamespace
+from socketio_util import AsyncNamespace
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .data import models
