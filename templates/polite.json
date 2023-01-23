@@ -1,0 +1,65 @@
+{
+  "root": "You will see conversations between two people who disagree about gun control. Given the conversation, rephrase so that it is polite and non-defensive. Also, if the language is very strong, try to soften the tone of the message. If the content of the message is polite, keep the original wording as much as possible. Make sure that the message is also consistent with the intent of the original message and doesn't add extra information.\n\nThe opponent opposes increased gun control, while the supporter supports it.\n\nConversation 1:\n\"\"\"\nGun control opponent: \"I think the current gun control laws do not need any further regulation as it will only restrict the rights of law abiding citizens and leave them more vulnerable to criminals that avert gun control laws anyway. So I definitely do not think the benefits of gun control outweigh the potential downsides.\"\nGun control supporter: \"I think there should be stricter background checks, not only the mentally ill but also people with misdemeanor charges, especially if it is some sort of violence; and longer wait times. There also need to be background checks at gun shows. I believe all guns need to be registered.\"\n\nGun control opponent (message to be rephrased): \"Gun ownership already requires registration of the firearm(s), FYI.\"\nGun control opponent (polite, non-defensive rephrased message): \"You probably didn't know, but I believe that gun ownership already requires registration of the firearm(s).\"\n\"\"\"\n\nYou will see conversations between two people who disagree about gun control. Given the conversation, rephrase so that it is polite and non-defensive. Also, if the language is very strong, try to soften the tone of the message. If the content of the message is polite, keep the original wording as much as possible. Make sure that the message is also consistent with the intent of the original message and doesn't add extra information.\n\nThe opponent opposes increased gun control, while the supporter supports it.\n\nConversation 2:\n\"\"\"\nGun control supporter: \"Guns kill an unacceptable number of people every year. No industrialized country other than the United States has even close to the kind of gun violence that we have. I think that we need far stricter gun laws in the US to prevent this kind of violence. Because of this, I would support legislation to require universal background checks for all gun owners and for required registration of all guns.\"\nGun control opponent: \"The right to bear arms is an important part of the constitution. Dems just want to take away guns and our right to bear arms. We need guns to be able to defend ourselves and our country in case of unjust tyranny. The only thing that stops a bad guy with a gun is a good guy with a gun.\"\nGun control opponent: \"2 many background checks would take away my 2nd amendment rights! What are we supposed to do, turn into Norway??!\"\nGun control supporter: \"If you look at how guns are actually used in this country, you would see that there's no evidence for what you're describing. THe more guns there are in an area, the more violence there is. Having guns doesn't make us any safer or more free.\"\n\nGun control opponent (message to be rephrased): \"You communist! Having guns is an important part of my life as an American. It's one of the reasons I'm proud to be in this country. And I feel a million x safer when I have my gun with me\"\nGun control opponent (polite, non-defensive rephrased message): \"Having guns is an important part of my life as an American. It's one of the reasons I'm proud to be in this country. And I feel a million x safer when I have my gun with me\"\n\"\"\"\n\nYou will see conversations between two people who disagree about gun control. Given the conversation, rephrase so that it is polite and non-defensive. Also, if the language is very strong, try to soften the tone of the message. If the content of the message is polite, keep the original wording as much as possible. Make sure that the message is also consistent with the intent of the original message and doesn't add extra information.\n\nThe opponent opposes increased gun control, while the supporter supports it.\n\nConversation 3:\n\"\"\"\nGun control opponent: \"Bad people will always be able to get guns in this country. All that we're doing with stricter gun laws is making it harder for the good guys to get guns and to be able to protect themselves. I think we should focus on getting illegal guns off the streets instead of infringing on law-abiding Americans' rights. Plus, I like hunting with guns, and don't want that to be taken away from me.\"\nGun control supporter: \"We need to end school shootings once and for all, like Australia did! Repeal the 2nd amendnment and buy back all the guns!\"\n\nGun control supporter (message to be rephrased): \"But the cost of having unlimited access to guns is too high - are you willing to make innocent children pay the price for your gun?\"\nGun control supporter (polite, non-defensive rephrased message): \"I feel that the cost of having unlimited access to guns is too high. I'm not willing to make innocent children pay the price for gun ownership.\"\n\"\"\"\n\nYou will see conversations between two people who disagree about gun control. Given the conversation, rephrase so that it is polite and non-defensive. Also, if the language is very strong, try to soften the tone of the message. If the content of the message is polite, keep the original wording as much as possible. Make sure that the message is also consistent with the intent of the original message and doesn't add extra information.\n\nThe opponent opposes increased gun control, while the supporter supports it.\n\nConversation 4:\n\"\"\"\n\n{{ data[-4:-1]|turn|join(\"\\n\") }}\n\n{{ data[-1][-1]|position_description }} (message to be rephrased): \"{{ data[-1][-1].body }}\"\n{{ data[-1][-1]|position_description }} (polite, non-defensive rephrased message): \"",
+  "templates": {
+    "turn": "{# Here we use another template, 'message'. #}\n{{ data|message|join(\"\\n\") }}",
+    "position_description": "{{ {\"oppose\": \"Gun control opponent\", \"support\": \"Gun control supporter\"}[data.position] }}",
+    "message": "{{ position_description|title }}: \"{{ data.body }}\""
+  },
+  "data": [
+    {
+      "body": "I want to get rid of all guns right now. We have a fundamental right to life and guns take that away.",
+      "position": "support",
+      "visible": true
+    },
+    {
+      "body": "We need guns or we will die tragic, tragic deaths.",
+      "position": "oppose",
+      "visible": true
+    },
+    {
+      "position": "support",
+      "body": "Again, we need to totally get rid of guns.",
+      "visible": true
+    },
+    {
+      "body": "Exactly, that's so many guns that they'll never be able to register\u00a0all the guns! And how about my right to privacy? The govt\u00a0shouldn't keep track of every gun owner!\n",
+      "position": "oppose",
+      "visible": true
+    },
+    {
+      "body": "We need gun laws you moron!!",
+      "position": "support",
+      "visible": true
+    },
+    {
+      "body": "You are such an idiot. I hope you die. Guns are the only thing keeping us safe from fools like you",
+      "position": "oppose",
+      "visible": true
+    },
+    {
+      "body": "That's rude your asshole",
+      "position": "support",
+      "visible": false
+    },
+    {
+      "body": "Go to hell and I hope your die you fool. You are everything I hate",
+      "position": "support",
+      "visible": true
+    },
+    {
+      "body": "Oh yeah? Well you can shove it! I hate you just as much",
+      "position": "oppose",
+      "visible": true
+    },
+    {
+      "body": "Damn you straight to hell!!",
+      "position": "support",
+      "visible": true
+    },
+    {
+      "body": "I declare a blood feud against you and all of your family for the rest of time! Death to you!",
+      "position": "oppose",
+      "visible": true
+    }
+  ]
+}

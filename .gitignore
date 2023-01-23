@@ -7,9 +7,9 @@ __pycache__/
 *.egg-info/
 
 # JSONs that unfortunately ended up in the root
-validate.json
-restate.json
-polite.json
+/validate.json
+/restate.json
+/polite.json
 
 # Avoid committing any notes @vinhowe has made
 notes/
