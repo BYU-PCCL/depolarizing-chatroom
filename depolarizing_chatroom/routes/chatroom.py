@@ -351,7 +351,12 @@ class ChatroomSocketSession(SocketSession):
                 user_turn_count += 1
                 will_attempt_rephrasings = (
                     turn_count >= MIN_REPHRASING_TURNS
-                    and user_turn_count % REPHRASE_EVERY_N_TURNS == 0
+                    and (
+                        # This makes sure the modulo starts on turn=MIN_REPHRASING_TURNS
+                        (user_turn_count - MIN_REPHRASING_TURNS)
+                        % REPHRASE_EVERY_N_TURNS
+                    )
+                    == 0
                 )
 
         async with access.commit_after():
